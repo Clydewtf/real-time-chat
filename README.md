@@ -31,10 +31,10 @@ Fast. Offline-capable.
 - Clean Architecture + domain-driven mindset
 - Riverpod (StateNotifier + AsyncValue)
 - Navigation: GoRouter (Navigator 2.0)
-- GraphQL: Queries, Mutations, Subscriptions
+- GraphQL: graphql_flutter, Ferry
 - WebSockets for realtime
 - Local DB: Drift (encrypted)
-- Codegen: Artemis, Freezed, json_serializable
+- Codegen: Ferry, Freezed, json_serializable
 - Streams & async programming
 - Testing: unit & widget
 - Sentry/AppMetrica (optional)
