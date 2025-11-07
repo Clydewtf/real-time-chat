@@ -44,6 +44,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.token != null;
       final isAuthPage = state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
+      if (state.matchedLocation == '/splash') {
+        return isLoggedIn ? '/home' : '/login';
+      }
+
       // if token exist - /home
       if (isLoggedIn && isAuthPage) {
         return '/home';
