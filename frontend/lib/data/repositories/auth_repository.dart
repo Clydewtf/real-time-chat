@@ -1,54 +1,31 @@
+import 'package:frontend/data/datasources/auth_local_datasource.dart';
+import 'package:frontend/data/datasources/auth_remote_datasource.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
 
 class AuthRepository {
+  final AuthRemoteDatasource remote;
+  final AuthLocalDatasource local;
+
+  AuthRepository({required this.remote, required this.local});
+
   Future<Map<String, dynamic>> login(GraphQLClient client, String email, String password) async {
-    const loginMutation = '''
-      mutation LoginUser(\$email: String!, \$password: String!) {
-        loginUser(email: \$email, password: \$password) {
-          success
-          message
-          token
-        }
-      }
-    ''';
-
-    final result = await client.mutate(
-      MutationOptions(
-        document: gql(loginMutation),
-        variables: {'email': email, 'password': password},
-      ),
-    );
-
-    if (result.hasException) {
-      throw Exception(result.exception.toString());
+    final result = await remote.login(client, email, password);
+    if (result['success'] == true) {
+      await local.saveToken(result['token']);
     }
-
-    return result.data!['loginUser'] as Map<String, dynamic>;
+    return result;
   }
 
   Future<Map<String, dynamic>> register(GraphQLClient client, String email, String password) async {
-    const registerMutation = '''
-      mutation RegisterUser(\$email: String!, \$password: String!) {
-        registerUser(email: \$email, password: \$password) {
-          success
-          message
-          token
-        }
-      }
-    ''';
-
-    final result = await client.mutate(
-      MutationOptions(
-        document: gql(registerMutation),
-        variables: {'email': email, 'password': password},
-      ),
-    );
-
-    if (result.hasException) {
-      throw Exception(result.exception.toString());
+    final result = await remote.register(client, email, password);
+    if (result['success'] == true) {
+      await local.saveToken(result['token']);
     }
-
-    return result.data!['registerUser'] as Map<String, dynamic>;
+    return result;
   }
+
+  Future<String?> getSavedToken() => local.getToken();
+
+  Future<void> logout() => local.clearToken();
 }
