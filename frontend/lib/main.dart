@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/utils/app_router.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'logic/services/providers.dart';
-import 'presentation/screens/auth_screen.dart';
 
 
 void main() async {
@@ -18,13 +18,16 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
     final client = ref.watch(dynamicGraphQLClientProvider);
 
     return GraphQLProvider(
       client: ValueNotifier(client),
-      child: MaterialApp(
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
         title: 'Chat App',
-        home: AuthTestScreen(),
+        theme: ThemeData.light(),
+        routerConfig: router,
       ),
     );
   }
