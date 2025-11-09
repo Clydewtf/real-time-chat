@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../logic/services/providers.dart';
 
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mockChats = List.generate(
       8,
       (index) => {
@@ -18,6 +20,15 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Chats'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () async {
+              await ref.read(authNotifierProvider.notifier).logout();
+            },
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: mockChats.length,

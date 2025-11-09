@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/utils/go_router_refresh_stream.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../presentation/screens/register_screen.dart';
 import '../../presentation/screens/splash_screen.dart';
-import '../../presentation/screens/auth_screen.dart';
+import '../../presentation/screens/login_screen.dart';
 import '../../presentation/screens/home_screen.dart';
 import '../../logic/services/providers.dart';
 
@@ -26,11 +27,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => AuthTestScreen(),
+        builder: (context, state) => LoginScreen(),
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => AuthTestScreen(), // позже на отдельный экран
+        builder: (context, state) => RegisterScreen(),
       ),
       GoRoute(
         path: '/home',
