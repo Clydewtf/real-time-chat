@@ -32,24 +32,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     init();
   }
 
-  // Future<void> init() async {
-  //   final token = await repository.getSavedToken();
-  //   state = state.copyWith(token: token, isInitialized: true);
-  //   _notify();
-  // }
-
   Future<void> init() async {
-  try {
     final token = await repository.getSavedToken();
-    print('🔑 Loaded token: $token');
     state = state.copyWith(token: token, isInitialized: true);
-  } catch (e, st) {
-    print('❌ Error loading token: $e');
-    print('$st');
-    state = state.copyWith(isInitialized: true);
+    _notify();
   }
-  _notify();
-}
 
   void _notify() => _controller.add(null);
 
