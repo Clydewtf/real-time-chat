@@ -16,13 +16,20 @@ class HomeScreen extends ConsumerWidget {
       },
     );
 
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        title: const Text('Chats'),
+        title: Text(
+          'Chats',
+          style: textTheme.titleLarge?.copyWith(color: colors.onPrimary),
+        ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: Icon(Icons.logout, color: colors.onPrimary),
             tooltip: 'Logout',
             onPressed: () async {
               await ref.read(authNotifierProvider.notifier).logout();
@@ -36,13 +43,24 @@ class HomeScreen extends ConsumerWidget {
           final chat = mockChats[index];
           return ListTile(
             leading: CircleAvatar(
-              child: Text(chat['name']![0]),
+              backgroundColor: colors.secondary,
+              child: Text(
+                chat['name']![0],
+                style: textTheme.titleMedium
+                    ?.copyWith(color: colors.onSecondary),
+              ),
             ),
-            title: Text(chat['name']!),
+            title: Text(
+              chat['name']!,
+              style:
+                  textTheme.bodyLarge?.copyWith(color: colors.onSurface),
+            ),
             subtitle: Text(
               chat['message']!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyMedium
+                  ?.copyWith(color: colors.onSurface.withValues(alpha: 0.7)),
             ),
             onTap: () {
               // Placeholder for chat details navigation

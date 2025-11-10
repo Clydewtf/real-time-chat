@@ -5,8 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5a666a69-b342-43ae-9483-420abfea3692" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/frontend/lib/logic/state/auth_notifier.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/logic/state/auth_notifier.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/main.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/home_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/login_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/register_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/register_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/splash_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/splash_screen.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,7 +50,7 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "feature/logout",
+    "git-widget-placeholder": "feature/theme",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/projects/real-time-chat/frontend/android",
     "settings.editor.selected.configurable": "dart.settings"

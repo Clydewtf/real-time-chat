@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/utils/app_router.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'logic/services/providers.dart';
+import 'core/utils/theme.dart';
 
 
 void main() async {
@@ -26,7 +27,8 @@ class MyApp extends ConsumerWidget {
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Chat App',
-        theme: ThemeData.light(),
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
         routerConfig: router,
       ),
     );

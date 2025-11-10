@@ -14,39 +14,64 @@ class RegisterScreen extends ConsumerWidget {
 
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign up')),
+      backgroundColor: colors.surface,
+      appBar: AppBar(
+        title: Text(
+          'Sign up',
+          style: textTheme.titleLarge?.copyWith(color: colors.onPrimary),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: emailController,
               decoration: const InputDecoration(labelText: 'Email'),
+              style: textTheme.bodyLarge?.copyWith(color: colors.onSurface),
             ),
+            const SizedBox(height: 16),
             TextField(
               controller: passwordController,
               decoration: const InputDecoration(labelText: 'Password'),
               obscureText: true,
+              style: textTheme.bodyLarge?.copyWith(color: colors.onSurface),
             ),
             const SizedBox(height: 20),
-            if (authState.isLoading) const CircularProgressIndicator(),
+            if (authState.isLoading)
+              CircularProgressIndicator(color: colors.primary),
             if (authState.error != null)
-              Text(authState.error!, style: const TextStyle(color: Colors.red)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  authState.error!,
+                  style: textTheme.bodyMedium?.copyWith(color: colors.error),
+                ),
+              ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () {
-                ref
-                    .read(authNotifierProvider.notifier)
-                    .register(emailController.text, passwordController.text, client);
-              },
-              child: const Text('Sign up'),
+              onPressed: authState.isLoading
+                  ? null
+                  : () {
+                      ref.read(authNotifierProvider.notifier).register(
+                          emailController.text,
+                          passwordController.text,
+                          client);
+                    },
+              child: Text('Sign up', style: textTheme.labelLarge),
             ),
             const SizedBox(height: 10),
             TextButton(
               onPressed: () => context.go('/login'),
-              child: const Text('Already have an account? Sign in'),
+              child: Text(
+                'Already have an account? Sign in',
+                style: textTheme.bodyMedium?.copyWith(color: colors.secondary),
+              ),
             ),
           ],
         ),
