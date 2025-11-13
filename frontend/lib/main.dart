@@ -11,11 +11,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
 
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(const ProviderScope(child: ChatApp()));
 }
 
-class MyApp extends ConsumerWidget {
-  const MyApp({super.key});
+class ChatApp extends ConsumerWidget {
+  const ChatApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
