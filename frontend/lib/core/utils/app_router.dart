@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/utils/go_router_refresh_stream.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../presentation/screens/register_screen.dart';
+import '../../presentation/screens/chats/chat_details_screen.dart';
+import '../../presentation/screens/chats/chats_screen.dart';
+import '../../presentation/screens/main_screen.dart';
+import '../../presentation/screens/auth/register_screen.dart';
+import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/splash_screen.dart';
-import '../../presentation/screens/login_screen.dart';
-import '../../presentation/screens/home_screen.dart';
+import '../../presentation/screens/auth/login_screen.dart';
 import '../../logic/services/providers.dart';
 
 
@@ -34,8 +37,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => RegisterScreen(),
       ),
       GoRoute(
-        path: '/home',
-        builder: (context, state) => const HomeScreen(),
+        path: '/main',
+        builder: (context, state) => const MainScreen(),
+      ),
+      GoRoute(
+        path: '/chats',
+        builder: (context, state) => const ChatsScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/chat/:id',
+        name: 'chat_details',
+        builder: (context, state) {
+          final chatId = state.pathParameters['id']!;
+          return ChatDetailsScreen(chatId: chatId);
+        },
       ),
     ],
     redirect: (context, state) {
@@ -46,16 +65,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthPage = state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
       if (state.matchedLocation == '/splash') {
-        return isLoggedIn ? '/home' : '/login';
+        return isLoggedIn ? '/main' : '/login';
       }
 
-      // if token exist - /home
+      // if token exist - /main
       if (isLoggedIn && isAuthPage) {
-        return '/home';
+        return '/main';
       }
 
       // if token doesn't exist - /login
-      if (!isLoggedIn && state.matchedLocation == '/home') {
+      if (!isLoggedIn && state.matchedLocation == '/main') {
         return '/login';
       }
 
