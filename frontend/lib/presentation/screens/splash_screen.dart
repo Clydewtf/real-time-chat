@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/common/app_loading_indicator.dart';
 
 
 class SplashScreen extends StatelessWidget {
@@ -10,11 +11,7 @@ class SplashScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: colors.surface,
-      body: Center(
-        child: CircularProgressIndicator(
-          color: colors.primary,
-        ),
-      ),
+      body: AppLoadingIndicator(),
     );
   }
 }
