@@ -6,6 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="5a666a69-b342-43ae-9483-420abfea3692" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/data/datasources/auth_local_datasource.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/data/datasources/auth_local_datasource.g.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/data/datasources/auth_remote_datasource.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/data/repositories/auth_repository.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/data/repositories/auth_repository.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/logic/services/providers.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/logic/services/providers.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,7 +50,7 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "enhancement/db-schema",
+    "git-widget-placeholder": "feature/message-logic",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/projects/real-time-chat/frontend/android",
     "settings.editor.selected.configurable": "dart.settings"
