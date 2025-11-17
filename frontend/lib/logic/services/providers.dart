@@ -1,12 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import '../../data/datasources/auth_local_datasource.dart';
-import '../../data/datasources/auth_remote_datasource.dart';
+import '../../data/datasources/local/auth/auth_local_datasource.dart';
+import '../../data/datasources/local/drift/app_database.dart';
+import '../../data/datasources/local/message/message_local_datasource.dart';
+import '../../data/datasources/remote/auth/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../state/auth_notifier.dart';
 import '../../core/utils/config.dart';
 
+
+// Drift database provider
+final appDatabaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
 // Remote datasource provider
 final authRemoteDatasourceProvider = Provider<AuthRemoteDatasource>((ref) {
@@ -15,7 +20,11 @@ final authRemoteDatasourceProvider = Provider<AuthRemoteDatasource>((ref) {
 
 // Local datasource provider
 final authLocalDatasourceProvider = Provider<AuthLocalDatasource>((ref) {
-  return AuthLocalDatasource(AppDatabase());
+  return AuthLocalDatasource(ref.read(appDatabaseProvider));
+});
+
+final messageLocalDatasourceProvider = Provider<MessageLocalDatasource>((ref) {
+  return MessageLocalDatasource(ref.read(appDatabaseProvider));
 });
 
 // Repository provider

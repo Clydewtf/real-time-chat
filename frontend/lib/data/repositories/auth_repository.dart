@@ -1,5 +1,5 @@
-import 'package:frontend/data/datasources/auth_local_datasource.dart';
-import 'package:frontend/data/datasources/auth_remote_datasource.dart';
+import 'package:frontend/data/datasources/local/auth/auth_local_datasource.dart';
+import 'package:frontend/data/datasources/remote/auth/auth_remote_datasource.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
 
