@@ -6,11 +6,12 @@ import 'package:path_provider/path_provider.dart';
 
 import 'auth_table.dart';
 import 'message_table.dart';
+import 'chats_table.dart';
 
 part 'app_database.g.dart';
 
 
-@DriftDatabase(tables: [AuthTokens, MessagesTable])
+@DriftDatabase(tables: [AuthTokens, MessagesTable, ChatsTable])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
