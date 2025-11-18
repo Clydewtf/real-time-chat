@@ -48,6 +48,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   path: ^1.9.1
   path_provider: ^2.1.5
+  uuid: ^4.5.2
   #sqlite3_web: ^0.4.1
 
 dev_dependencies:
