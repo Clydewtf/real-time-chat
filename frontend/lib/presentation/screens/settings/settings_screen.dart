@@ -54,6 +54,7 @@ class SettingsScreen extends ConsumerWidget {
                   label: 'Log out',
                   onPressed: () async {
                     await ref.read(authNotifierProvider.notifier).logout();
+                    ref.invalidate(currentUserIdProvider);
                   },
                 ),
               ],

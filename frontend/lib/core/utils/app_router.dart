@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/utils/go_router_refresh_stream.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/dtos/user_dto.dart';
 import '../../presentation/screens/chats/chat_details_screen.dart';
 import '../../presentation/screens/chats/chats_screen.dart';
 import '../../presentation/screens/chats/user_search_screen.dart';
