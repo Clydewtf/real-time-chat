@@ -32,7 +32,7 @@ def register_user(payload: dict, session: Session = Depends(db.get_db)):
     session.commit()
     session.refresh(new_user)
 
-    token = auth.create_jwt({"user_id": str(new_user.id)})
+    token = auth.create_jwt(str(new_user.id))
     return {"success": True, "message": "User registered", "token": token}
 
 
@@ -50,5 +50,5 @@ def login(payload: dict, session: Session = Depends(db.get_db)):
     if not db_user or not auth.verify_password(password, db_user.password_hash):
         return {"success": False, "message": "Invalid credentials", "token": None}
 
-    token = auth.create_jwt({"user_id": str(db_user.id)})
+    token = auth.create_jwt(str(db_user.id))
     return {"success": True, "message": "Login successful", "token": token}
