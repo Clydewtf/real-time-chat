@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/utils/go_router_refresh_stream.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/dtos/user_dto.dart';
 import '../../presentation/screens/chats/chat_details_screen.dart';
 import '../../presentation/screens/chats/chats_screen.dart';
+import '../../presentation/screens/chats/user_search_screen.dart';
 import '../../presentation/screens/main_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
 import '../../presentation/screens/settings/settings_screen.dart';
@@ -52,9 +54,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/chat/:id',
         name: 'chat_details',
         builder: (context, state) {
+          final currentUserId = state.extra as String? ?? '';
           final chatId = state.pathParameters['id']!;
-          return ChatDetailsScreen(chatId: chatId);
+          return ChatDetailsScreen(
+            chatId: chatId,
+            currentUserId: currentUserId,
+          );
         },
+      ),
+      GoRoute(
+        name: 'user_search',
+        path: '/search',
+        builder: (context, state) => const UserSearchScreen(),
       ),
     ],
     redirect: (context, state) {
