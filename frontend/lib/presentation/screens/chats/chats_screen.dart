@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/datasources/local/chat/chat_local_datasource.dart';
-import '../../../data/datasources/local/drift/app_database.dart';
+import 'package:intl/intl.dart';
 import '../../../domain/entities/chat.dart';
-import '../../../logic/services/chat_service.dart';
 import '../../../logic/services/providers.dart';
 import '../../widgets/chat/chat_card.dart';
 import 'package:go_router/go_router.dart';
+import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_divider.dart';
+import '../../widgets/common/app_loading_indicator.dart';
 import '../../widgets/constants/app_spacing.dart';
 import '../../widgets/layout/app_scaffold.dart';
-import 'create_chat_screen.dart';
 
 
 class ChatsScreen extends ConsumerStatefulWidget {
@@ -23,90 +22,84 @@ class ChatsScreen extends ConsumerStatefulWidget {
 class _ChatsScreenState extends ConsumerState<ChatsScreen> {
   List<Chat> chats = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadChats();
-  }
-
-  Future<void> _loadChats() async {
+  Future<void> _loadChats(String currentUserId) async {
     final chatLocal = ref.read(chatLocalDatasourceProvider);
-    const currentUserId = "0a723c2c-052c-49ee-b1ad-5ee7660b52bb";
-
     final list = await chatLocal.getUserChats(currentUserId);
     setState(() => chats = list);
   }
 
-  Future<void> _handleNewChat() async {
-    final chatId = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreateChatScreen(
-          chatService: ref.read(chatServiceProvider),
-          currentUserId: "0a723c2c-052c-49ee-b1ad-5ee7660b52bb",
-        ),
-      ),
-    );
-
-    if (chatId != null) _loadChats();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      title: 'Чаты',
-      floatingActionButton: FloatingActionButton(
-        onPressed: _handleNewChat,
-        child: const Icon(Icons.add),
-      ),
-      body: ListView.builder(
-        itemCount: chats.length,
-        itemBuilder: (_, index) {
-          final chat = chats[index];
+    final currentUserIdAsync = ref.watch(currentUserIdProvider);
 
-          return ListTile(
-            title: Text(chat.title ?? 'Чат'),
-            subtitle: Text('Участники: ${chat.participantIds.length}'),
-            onTap: () {
-              context.pushNamed(
-                'chat_details',
-                pathParameters: {'id': chat.id},
-              );
-            },
-          );
-        },
-      ),
+    return currentUserIdAsync.when(
+      data: (currentUserId) {
+        if (currentUserId == null) return const Center(child: Text("Unauthorized"));
+
+        if (chats.isEmpty) _loadChats(currentUserId);
+
+        return AppScaffold(
+          showAppBar: false,
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Text(
+                        'Chats',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s),
+                    AppButton(
+                      label: "Search users",
+                      onPressed: () {
+                        context.pushNamed('user_search');
+                      },
+                      expanded: true,
+                      outlined: true,
+                      icon: Icons.search,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: chats.length,
+                  separatorBuilder: (_, __) => const AppDivider(),
+                  itemBuilder: (_, index) {
+                    final chat = chats[index];
+                    final title = chat.title ??
+                        (chat.participantIds.length == 2
+                            ? chat.participantIds.firstWhere((id) => id != currentUserId)
+                            : "Group");
+                    final lastMessageTime = chat.updatedAt ?? chat.createdAt;
+                    final formattedTime = DateFormat('HH:mm').format(lastMessageTime);
+
+                    return ChatCard(
+                      name: title,
+                      lastMessage: chat.lastMessageId ?? '',
+                      time: formattedTime,
+                      avatarUrl: chat.avatarUrl ?? 'https://i.pravatar.cc/150?img=${index + 1}',
+                      onTap: () => context.pushNamed(
+                        "chat_details",
+                        pathParameters: {"id": chat.id},
+                        extra: currentUserId,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: AppLoadingIndicator()),
+      error: (e, st) => Center(child: Text("Error: $e")),
     );
   }
 }
-
-
-// class ChatsScreen extends StatelessWidget {
-//   const ChatsScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final chats = List.generate(10, (index) => 'Chat ${index + 1}');
-
-//     return AppScaffold(
-//       showAppBar: false,
-//       body: ListView.separated(
-//         itemCount: chats.length,
-//         separatorBuilder: (_, __) => const AppDivider(),
-//         itemBuilder: (context, index) {
-//           final name = chats[index];
-//           return Padding(
-//             padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
-//             child: ChatCard(
-//               name: name,
-//               lastMessage: 'Last message...',
-//               time: '10:${index}0',
-//               avatarUrl: 'https://i.pravatar.cc/150?img=${index + 1}',
-//               onTap: () => context.pushNamed('chat_details', pathParameters: {'id': '$index'},),
-//             ),
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
