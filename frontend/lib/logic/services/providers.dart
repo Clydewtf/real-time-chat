@@ -1,14 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:frontend/logic/services/chat_service.dart';
-import 'package:frontend/logic/services/user_search_service.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../data/datasources/local/auth/auth_local_datasource.dart';
 import '../../data/datasources/local/chat/chat_local_datasource.dart';
 import '../../data/datasources/local/drift/app_database.dart';
 import '../../data/datasources/local/message/message_local_datasource.dart';
 import '../../data/datasources/remote/auth/auth_remote_datasource.dart';
+import '../../data/datasources/remote/user/user_remote_datasource.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/user_repository.dart';
 import '../state/auth_notifier.dart';
 import '../../core/utils/config.dart';
 
@@ -19,6 +20,10 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 // Remote datasource providers
 final authRemoteDatasourceProvider = Provider<AuthRemoteDatasource>((ref) {
   return AuthRemoteDatasource();
+});
+
+final userRemoteDatasourceProvider = Provider<UserRemoteDatasource>((ref) {
+  return UserRemoteDatasource();
 });
 
 // Local datasource providers
@@ -41,14 +46,22 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(remote: remote, local: local);
 });
 
-// Service providers
-final userSearchServiceProvider = Provider<UserSearchService>((ref) => UserSearchService());
+final userRepositoryProvider = Provider<UserRepository>((ref) {
+  final remote = ref.read(userRemoteDatasourceProvider);
+  return UserRepository(remote: remote);
+});
 
+// Service providers
 final chatServiceProvider = Provider<ChatService>((ref) {
   final chatLocal = ref.watch(chatLocalDatasourceProvider);
   final messageLocal = ref.watch(messageLocalDatasourceProvider);
-  final userSearch = ref.watch(userSearchServiceProvider);
-  return ChatService(chatLocal: chatLocal, messageLocal: messageLocal, userSearch: userSearch);
+  final userRepo = ref.watch(userRepositoryProvider);
+  return ChatService(chatLocal: chatLocal, messageLocal: messageLocal, userRepository: userRepo);
+});
+
+final currentUserIdProvider = FutureProvider<String?>((ref) async {
+  final repo = ref.read(authRepositoryProvider);
+  return repo.getCurrentUserId();
 });
 
 // Notifier provider
