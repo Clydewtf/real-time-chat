@@ -1,64 +1,48 @@
+import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../data/datasources/local/chat/chat_local_datasource.dart';
 import '../../data/datasources/local/message/message_local_datasource.dart';
+import '../../data/repositories/user_repository.dart';
 import '../../domain/entities/chat.dart';
-import '../../domain/entities/message.dart';
-import '../../domain/value_objects/message_status.dart';
-import '../../domain/value_objects/message_type.dart';
-import 'user_search_service.dart';
 import 'package:uuid/uuid.dart';
 
 
 class ChatService {
   final ChatLocalDatasource chatLocal;
   final MessageLocalDatasource messageLocal;
-  final UserSearchService userSearch;
+  final UserRepository userRepository;
 
   final uuid = const Uuid();
 
   ChatService({
     required this.chatLocal,
     required this.messageLocal,
-    required this.userSearch,
+    required this.userRepository,
   });
 
-  Future<String?> sendMessageToEmail({
-    required String email,
-    required String text,
+  /// Create new private chat between currentUser and another user by username
+  Future<String?> createOrGetPrivateChat({
+    required GraphQLClient client,
     required String currentUserId,
+    required String username,
   }) async {
-    final otherUserId = await userSearch.findUserIdByEmail(email);
-    if (otherUserId == null) return null;
+    final users = await userRepository.searchUsers(client, username);
+    if (users.isEmpty) throw Exception('User not found');
 
-    // 1. Проверяем, есть ли чат
-    Chat? chat = await chatLocal.findDirectChat(currentUserId, otherUserId);
+    final otherUser = users.first;
+    if (otherUser.id == currentUserId) return null;
 
-    // 2. Если чата нет — создаём
+    Chat? chat = await chatLocal.findDirectChat(currentUserId, otherUser.id);
+
     if (chat == null) {
       final newChatId = uuid.v4();
       chat = Chat(
         id: newChatId,
-        participantIds: [currentUserId, otherUserId],
+        participantIds: [currentUserId, otherUser.id],
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
       await chatLocal.saveChat(chat);
     }
-
-    // 3. Создаём сообщение
-    final msg = Message(
-      id: uuid.v4(),
-      chatId: chat.id,
-      senderId: currentUserId,
-      content: text,
-      createdAt: DateTime.now(),
-      status: MessageStatus.pending,
-      type: MessageType.text,
-    );
-
-    await messageLocal.saveMessage(msg);
-
-    // 4. обновляем lastMessageId
-    await chatLocal.updateLastMessageId(chat.id, msg.id);
 
     return chat.id;
   }

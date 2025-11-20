@@ -11,6 +11,8 @@ class AppTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final Widget? prefixIcon;
   final int maxLines;
+  final ValueChanged<String>? onChanged;
+  final bool autoFocus;
 
   const AppTextField({
     super.key,
@@ -21,6 +23,8 @@ class AppTextField extends StatelessWidget {
     this.suffixIcon,
     this.prefixIcon,
     this.maxLines = 1,
+    this.onChanged,
+    this.autoFocus = false,
   });
 
   @override
@@ -32,6 +36,8 @@ class AppTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      onChanged: onChanged,
+      autofocus: autoFocus,
       style: theme.textTheme.bodyMedium,
       decoration: InputDecoration(
         hintText: hintText,

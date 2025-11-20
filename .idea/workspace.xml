@@ -5,13 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5a666a69-b342-43ae-9483-420abfea3692" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/frontend/lib/data/datasources/local/drift/app_database.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/data/datasources/local/drift/app_database.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/lib/data/datasources/local/drift/app_database.g.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/data/datasources/local/drift/app_database.g.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/lib/logic/services/providers.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/logic/services/providers.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/chats/chat_details_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/chats/chat_details_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/chats/chats_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/chats/chats_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/core/utils/app_router.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/core/utils/app_router.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/auth/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/auth/login_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/home_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/screens/settings/settings_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/screens/settings/settings_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/presentation/widgets/common/app_text_field.dart" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/presentation/widgets/common/app_text_field.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,7 +52,7 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "feature/chat-logic",
+    "git-widget-placeholder": "feature/user-logic",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/projects/real-time-chat/frontend/android",
     "settings.editor.selected.configurable": "dart.settings"

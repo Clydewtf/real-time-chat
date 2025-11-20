@@ -61,6 +61,7 @@ class LoginScreen extends ConsumerWidget {
                           emailController.text,
                           passwordController.text,
                           client);
+                      ref.invalidate(currentUserIdProvider);
                     },
               child: Text('Sign in', style: textTheme.labelLarge),
             ),

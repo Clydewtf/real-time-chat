@@ -1,6 +1,7 @@
 import 'package:frontend/data/datasources/local/auth/auth_local_datasource.dart';
 import 'package:frontend/data/datasources/remote/auth/auth_remote_datasource.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 
 class AuthRepository {
@@ -26,6 +27,18 @@ class AuthRepository {
   }
 
   Future<String?> getSavedToken() => local.getToken();
+
+  Future<String?> getCurrentUserId() async {
+    final token = await getSavedToken();
+    if (token == null) return null;
+
+    try {
+      final decoded = JwtDecoder.decode(token);
+      return decoded['sub'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> logout() => local.clearToken();
 }
