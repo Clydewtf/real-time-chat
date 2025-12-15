@@ -8,6 +8,7 @@ part of 'message.dart';
 
 _Message _$MessageFromJson(Map<String, dynamic> json) => _Message(
   id: json['id'] as String,
+  remoteId: json['remoteId'] as String?,
   chatId: json['chatId'] as String,
   senderId: json['senderId'] as String,
   content: json['content'] as String,
@@ -28,6 +29,7 @@ _Message _$MessageFromJson(Map<String, dynamic> json) => _Message(
 
 Map<String, dynamic> _$MessageToJson(_Message instance) => <String, dynamic>{
   'id': instance.id,
+  'remoteId': instance.remoteId,
   'chatId': instance.chatId,
   'senderId': instance.senderId,
   'content': instance.content,
@@ -52,4 +54,5 @@ const _$MessageStatusEnumMap = {
   MessageStatus.sent: 'sent',
   MessageStatus.delivered: 'delivered',
   MessageStatus.read: 'read',
+  MessageStatus.failed: 'failed',
 };

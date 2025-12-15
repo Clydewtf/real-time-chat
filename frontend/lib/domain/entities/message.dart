@@ -9,7 +9,10 @@ part 'message.g.dart';
 @freezed
 abstract class Message with _$Message {
   const factory Message({
+    /// Local UUID (always exists)
     required String id,
+    /// Remote UUID (null until synced)
+    String? remoteId,
     required String chatId,
     required String senderId,
     required String content,
@@ -19,6 +22,7 @@ abstract class Message with _$Message {
     DateTime? editedAt,
     String? replyToMessageId,
     String? attachmentUrl,
+    /// Used to match local ↔ remote
     String? localTempId,
   }) = _Message;
 
