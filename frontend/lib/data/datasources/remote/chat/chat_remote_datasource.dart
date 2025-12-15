@@ -42,8 +42,9 @@ class ChatRemoteDatasource  {
   }
 
   /// Fetch all chats for current user
+  /// Return list of chats
   Future<List<Map<String, dynamic>>> getChatsForUser(GraphQLClient client, String userId,) async {
-    const getUserChatsMutation = '''
+    const getUserChatsQuery = '''
       query GetUserChats(\$userId: uuid!) {
         chats(
           where: {
@@ -67,9 +68,9 @@ class ChatRemoteDatasource  {
       }
     ''';
 
-    final result = await client.mutate(
-      MutationOptions(
-        document: gql(getUserChatsMutation),
+    final result = await client.query(
+      QueryOptions(
+        document: gql(getUserChatsQuery),
         variables: {'userId': userId,},
         fetchPolicy: FetchPolicy.networkOnly,
       ),
