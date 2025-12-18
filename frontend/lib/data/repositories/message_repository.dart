@@ -96,14 +96,34 @@ class MessageRepository {
   }
 
   /// Apply subscription message (real-time)
-  Future<void> applyIncomingMessage(Message message) async {
+  Future<void> applyIncomingMessage(Message incoming) async {
+    // 1. Dedup by localTempId
+    if (incoming.localTempId != null) {
+      final existing = await local.findByLocalTempId(incoming.localTempId!);
+
+      if (existing != null) {
+        await local.updateAfterRemoteSync(
+          localId: existing.id,
+          remoteId: incoming.id,
+        );
+
+        await chatRepository.updateChatMetadata(
+          chatId: incoming.chatId,
+          lastMessageId: incoming.id,
+        );
+
+        return;
+      }
+    }
+
+    // 2. New incoming message
     await local.saveMessage(
-      message.copyWith(status: MessageStatus.sent),
+      incoming.copyWith(status: MessageStatus.sent),
     );
 
     await chatRepository.updateChatMetadata(
-      chatId: message.chatId,
-      lastMessageId: message.id,
+      chatId: incoming.chatId,
+      lastMessageId: incoming.id,
     );
   }
 
