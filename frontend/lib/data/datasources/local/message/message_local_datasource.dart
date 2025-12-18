@@ -62,4 +62,12 @@ class MessageLocalDatasource {
       ),
     );
   }
+
+  Future<Message?> findByLocalTempId(String localTempId) async {
+    final row = await (db.select(db.messagesTable)
+          ..where((tbl) => tbl.localTempId.equals(localTempId)))
+        .getSingleOrNull();
+    
+    return row?.toDomain();
+  }
 }
