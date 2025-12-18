@@ -22,7 +22,7 @@ class ChatLocalDatasource {
     return row?.toDomain();
   }
 
-  /// Находит существующий чат между двумя участниками
+  /// Find existing chat between two users
   Future<Chat?> findDirectChat(String userA, String userB) async {
     final rows = await db.select(db.chatsTable).get();
     for (final row in rows) {
@@ -35,7 +35,7 @@ class ChatLocalDatasource {
     return null;
   }
 
-  /// Возвращает все чаты, где есть этот пользователь
+  /// Return all chats where that user exists
   Future<List<Chat>> getUserChats(String userId) async {
     final rows = await db.select(db.chatsTable).get();
     return rows

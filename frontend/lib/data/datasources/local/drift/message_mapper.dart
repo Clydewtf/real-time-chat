@@ -9,6 +9,7 @@ extension MessageDatabaseMapper on Message {
   MessagesTableCompanion toCompanion() {
     return MessagesTableCompanion(
       id: Value(id),
+      remoteId: Value(remoteId),
       chatId: Value(chatId),
       senderId: Value(senderId),
       content: Value(content),
@@ -27,6 +28,7 @@ extension MessageRowMapper on MessagesTableData {
   Message toDomain() {
     return Message(
       id: id,
+      remoteId: remoteId,
       chatId: chatId,
       senderId: senderId,
       content: content,

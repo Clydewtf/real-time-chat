@@ -2,7 +2,8 @@ import 'package:drift/drift.dart';
 
 
 class MessagesTable extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text()(); // localId
+  TextColumn get remoteId => text().nullable()(); //remoteId
   TextColumn get chatId => text()();
   TextColumn get senderId => text()();
   TextColumn get content => text()();

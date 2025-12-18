@@ -205,6 +205,17 @@ class $MessagesTableTable extends MessagesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _chatIdMeta = const VerificationMeta('chatId');
   @override
   late final GeneratedColumn<String> chatId = GeneratedColumn<String>(
@@ -315,6 +326,7 @@ class $MessagesTableTable extends MessagesTable
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    remoteId,
     chatId,
     senderId,
     content,
@@ -342,6 +354,12 @@ class $MessagesTableTable extends MessagesTable
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
     }
     if (data.containsKey('chat_id')) {
       context.handle(
@@ -431,6 +449,10 @@ class $MessagesTableTable extends MessagesTable
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
       chatId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}chat_id'],
@@ -483,6 +505,7 @@ class $MessagesTableTable extends MessagesTable
 class MessagesTableData extends DataClass
     implements Insertable<MessagesTableData> {
   final String id;
+  final String? remoteId;
   final String chatId;
   final String senderId;
   final String content;
@@ -495,6 +518,7 @@ class MessagesTableData extends DataClass
   final String? localTempId;
   const MessagesTableData({
     required this.id,
+    this.remoteId,
     required this.chatId,
     required this.senderId,
     required this.content,
@@ -510,6 +534,9 @@ class MessagesTableData extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
     map['chat_id'] = Variable<String>(chatId);
     map['sender_id'] = Variable<String>(senderId);
     map['content'] = Variable<String>(content);
@@ -534,6 +561,9 @@ class MessagesTableData extends DataClass
   MessagesTableCompanion toCompanion(bool nullToAbsent) {
     return MessagesTableCompanion(
       id: Value(id),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
       chatId: Value(chatId),
       senderId: Value(senderId),
       content: Value(content),
@@ -562,6 +592,7 @@ class MessagesTableData extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return MessagesTableData(
       id: serializer.fromJson<String>(json['id']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
       chatId: serializer.fromJson<String>(json['chatId']),
       senderId: serializer.fromJson<String>(json['senderId']),
       content: serializer.fromJson<String>(json['content']),
@@ -579,6 +610,7 @@ class MessagesTableData extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'remoteId': serializer.toJson<String?>(remoteId),
       'chatId': serializer.toJson<String>(chatId),
       'senderId': serializer.toJson<String>(senderId),
       'content': serializer.toJson<String>(content),
@@ -594,6 +626,7 @@ class MessagesTableData extends DataClass
 
   MessagesTableData copyWith({
     String? id,
+    Value<String?> remoteId = const Value.absent(),
     String? chatId,
     String? senderId,
     String? content,
@@ -606,6 +639,7 @@ class MessagesTableData extends DataClass
     Value<String?> localTempId = const Value.absent(),
   }) => MessagesTableData(
     id: id ?? this.id,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
     chatId: chatId ?? this.chatId,
     senderId: senderId ?? this.senderId,
     content: content ?? this.content,
@@ -624,6 +658,7 @@ class MessagesTableData extends DataClass
   MessagesTableData copyWithCompanion(MessagesTableCompanion data) {
     return MessagesTableData(
       id: data.id.present ? data.id.value : this.id,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       chatId: data.chatId.present ? data.chatId.value : this.chatId,
       senderId: data.senderId.present ? data.senderId.value : this.senderId,
       content: data.content.present ? data.content.value : this.content,
@@ -647,6 +682,7 @@ class MessagesTableData extends DataClass
   String toString() {
     return (StringBuffer('MessagesTableData(')
           ..write('id: $id, ')
+          ..write('remoteId: $remoteId, ')
           ..write('chatId: $chatId, ')
           ..write('senderId: $senderId, ')
           ..write('content: $content, ')
@@ -664,6 +700,7 @@ class MessagesTableData extends DataClass
   @override
   int get hashCode => Object.hash(
     id,
+    remoteId,
     chatId,
     senderId,
     content,
@@ -680,6 +717,7 @@ class MessagesTableData extends DataClass
       identical(this, other) ||
       (other is MessagesTableData &&
           other.id == this.id &&
+          other.remoteId == this.remoteId &&
           other.chatId == this.chatId &&
           other.senderId == this.senderId &&
           other.content == this.content &&
@@ -694,6 +732,7 @@ class MessagesTableData extends DataClass
 
 class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
   final Value<String> id;
+  final Value<String?> remoteId;
   final Value<String> chatId;
   final Value<String> senderId;
   final Value<String> content;
@@ -707,6 +746,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
   final Value<int> rowid;
   const MessagesTableCompanion({
     this.id = const Value.absent(),
+    this.remoteId = const Value.absent(),
     this.chatId = const Value.absent(),
     this.senderId = const Value.absent(),
     this.content = const Value.absent(),
@@ -721,6 +761,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
   });
   MessagesTableCompanion.insert({
     required String id,
+    this.remoteId = const Value.absent(),
     required String chatId,
     required String senderId,
     required String content,
@@ -738,6 +779,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
        content = Value(content);
   static Insertable<MessagesTableData> custom({
     Expression<String>? id,
+    Expression<String>? remoteId,
     Expression<String>? chatId,
     Expression<String>? senderId,
     Expression<String>? content,
@@ -752,6 +794,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (remoteId != null) 'remote_id': remoteId,
       if (chatId != null) 'chat_id': chatId,
       if (senderId != null) 'sender_id': senderId,
       if (content != null) 'content': content,
@@ -768,6 +811,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
 
   MessagesTableCompanion copyWith({
     Value<String>? id,
+    Value<String?>? remoteId,
     Value<String>? chatId,
     Value<String>? senderId,
     Value<String>? content,
@@ -782,6 +826,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
   }) {
     return MessagesTableCompanion(
       id: id ?? this.id,
+      remoteId: remoteId ?? this.remoteId,
       chatId: chatId ?? this.chatId,
       senderId: senderId ?? this.senderId,
       content: content ?? this.content,
@@ -801,6 +846,9 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
     }
     if (chatId.present) {
       map['chat_id'] = Variable<String>(chatId.value);
@@ -842,6 +890,7 @@ class MessagesTableCompanion extends UpdateCompanion<MessagesTableData> {
   String toString() {
     return (StringBuffer('MessagesTableCompanion(')
           ..write('id: $id, ')
+          ..write('remoteId: $remoteId, ')
           ..write('chatId: $chatId, ')
           ..write('senderId: $senderId, ')
           ..write('content: $content, ')
@@ -1619,6 +1668,7 @@ typedef $$AuthTokensTableProcessedTableManager =
 typedef $$MessagesTableTableCreateCompanionBuilder =
     MessagesTableCompanion Function({
       required String id,
+      Value<String?> remoteId,
       required String chatId,
       required String senderId,
       required String content,
@@ -1634,6 +1684,7 @@ typedef $$MessagesTableTableCreateCompanionBuilder =
 typedef $$MessagesTableTableUpdateCompanionBuilder =
     MessagesTableCompanion Function({
       Value<String> id,
+      Value<String?> remoteId,
       Value<String> chatId,
       Value<String> senderId,
       Value<String> content,
@@ -1658,6 +1709,11 @@ class $$MessagesTableTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1726,6 +1782,11 @@ class $$MessagesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get chatId => $composableBuilder(
     column: $table.chatId,
     builder: (column) => ColumnOrderings(column),
@@ -1788,6 +1849,9 @@ class $$MessagesTableTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
 
   GeneratedColumn<String> get chatId =>
       $composableBuilder(column: $table.chatId, builder: (column) => column);
@@ -1862,6 +1926,7 @@ class $$MessagesTableTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
                 Value<String> chatId = const Value.absent(),
                 Value<String> senderId = const Value.absent(),
                 Value<String> content = const Value.absent(),
@@ -1875,6 +1940,7 @@ class $$MessagesTableTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => MessagesTableCompanion(
                 id: id,
+                remoteId: remoteId,
                 chatId: chatId,
                 senderId: senderId,
                 content: content,
@@ -1890,6 +1956,7 @@ class $$MessagesTableTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<String?> remoteId = const Value.absent(),
                 required String chatId,
                 required String senderId,
                 required String content,
@@ -1903,6 +1970,7 @@ class $$MessagesTableTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => MessagesTableCompanion.insert(
                 id: id,
+                remoteId: remoteId,
                 chatId: chatId,
                 senderId: senderId,
                 content: content,

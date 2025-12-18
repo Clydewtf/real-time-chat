@@ -48,4 +48,26 @@ class MessageLocalDatasource {
           ..where((tbl) => tbl.chatId.equals(chatId)))
         .go();
   }
+
+  Future<void> updateAfterRemoteSync({
+    required String localId,
+    required String remoteId,
+  }) async {
+    await (db.update(db.messagesTable)
+          ..where((tbl) => tbl.id.equals(localId)))
+        .write(
+      MessagesTableCompanion(
+        remoteId: Value(remoteId),
+        status: Value(MessageStatus.sent.name),
+      ),
+    );
+  }
+
+  Future<Message?> findByLocalTempId(String localTempId) async {
+    final row = await (db.select(db.messagesTable)
+          ..where((tbl) => tbl.localTempId.equals(localTempId)))
+        .getSingleOrNull();
+    
+    return row?.toDomain();
+  }
 }
