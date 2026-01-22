@@ -23,83 +23,191 @@ class ChatDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
-  final controller = TextEditingController();
-  List<Message> messages = [];
-  bool loading = true;
+  late final TextEditingController controller;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    controller = TextEditingController();
+
+    final repo = ref.read(messageRepositoryProvider);
+    final client = ref.read(dynamicGraphQLClientProvider);
+
+    repo.subscribeToChat(client: client, chatId: widget.chatId);
   }
 
-  Future<void> _loadMessages() async {
-    setState(() => loading = true);
-
-    final messageLocal = ref.read(messageLocalDatasourceProvider);
-    final msgs = await messageLocal.getMessages(widget.chatId);
-    if (!mounted) return;
-
-    setState(() {
-      messages = msgs;
-      loading = false;
-    });
-  }
-
-  Future<void> _sendMessage() async {
-    final text = controller.text.trim();
-    if (text.isEmpty) return;
-
-    final messageLocal = ref.read(messageLocalDatasourceProvider);
-
-    final msg = Message(
-      id: const Uuid().v4(),
-      chatId: widget.chatId,
-      senderId: widget.currentUserId,
-      content: text,
-      createdAt: DateTime.now(),
-      status: MessageStatus.pending,
-      type: MessageType.text,
-    );
-
-    await messageLocal.saveMessage(msg);
-
-    controller.clear();
-    _loadMessages();
+  @override
+  void dispose() {
+    ref.read(messageRepositoryProvider).unsubscribeFromChat();
+    controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      title: 'Chat &',
-      body: loading
-          ? const Center(child: AppLoadingIndicator())
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.m),
-                    itemCount: messages.length,
-                    itemBuilder: (_, index) {
-                      final msg = messages[index];
-                      final isMe = msg.senderId == widget.currentUserId;
+    final messagesAsync =
+        ref.watch(chatMessagesProvider(widget.chatId));
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
-                        child: MessageBubble(
-                          text: msg.content,
-                          type: isMe ? BubbleType.outgoing : BubbleType.incoming,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                MessageInputBar(
-                  controller: controller,
-                  onSend: _sendMessage,
-                ),
-              ],
+    return AppScaffold(
+      title: 'Chat',
+      body: Column(
+        children: [
+          Expanded(
+            child: messagesAsync.when(
+              loading: () =>
+                  const Center(child: AppLoadingIndicator()),
+              error: (e, _) =>
+                  Center(child: Text('Error: $e')),
+              data: (messages) {
+                return ListView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.m),
+                  itemCount: messages.length,
+                  itemBuilder: (_, index) {
+                    final msg = messages[index];
+                    final isMe =
+                        msg.senderId == widget.currentUserId;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s,
+                      ),
+                      child: MessageBubble(
+                        text: msg.content,
+                        type: isMe
+                            ? BubbleType.outgoing
+                            : BubbleType.incoming,
+                        status: msg.status,
+                      ),
+                    );
+                  },
+                );
+              },
             ),
+          ),
+          MessageInputBar(
+            controller: controller,
+            onSend: () async {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+
+              final repo =
+                  ref.read(messageRepositoryProvider);
+              final client =
+                  ref.read(dynamicGraphQLClientProvider);
+
+              final message = Message(
+                id: const Uuid().v4(),
+                chatId: widget.chatId,
+                senderId: widget.currentUserId,
+                content: text,
+                createdAt: DateTime.now(),
+                status: MessageStatus.pending,
+                localTempId: const Uuid().v4(),
+                type: MessageType.text,
+              );
+
+              controller.clear();
+
+              await repo.sendMessage(
+                client: client,
+                message: message,
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
+
+// class ChatDetailsScreen extends ConsumerStatefulWidget {
+//   final String chatId;
+//   final String currentUserId;
+
+//   const ChatDetailsScreen({super.key, required this.chatId, required this.currentUserId});
+
+//   @override
+//   ConsumerState<ChatDetailsScreen> createState() => _ChatDetailsScreenState();
+// }
+
+// class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
+//   final controller = TextEditingController();
+//   List<Message> messages = [];
+//   bool loading = true;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _loadMessages();
+//   }
+
+//   Future<void> _loadMessages() async {
+//     setState(() => loading = true);
+
+//     final messageLocal = ref.read(messageLocalDatasourceProvider);
+//     final msgs = await messageLocal.getMessages(widget.chatId);
+//     if (!mounted) return;
+
+//     setState(() {
+//       messages = msgs;
+//       loading = false;
+//     });
+//   }
+
+//   Future<void> _sendMessage() async {
+//     final text = controller.text.trim();
+//     if (text.isEmpty) return;
+
+//     final messageLocal = ref.read(messageLocalDatasourceProvider);
+
+//     final msg = Message(
+//       id: const Uuid().v4(),
+//       chatId: widget.chatId,
+//       senderId: widget.currentUserId,
+//       content: text,
+//       createdAt: DateTime.now(),
+//       status: MessageStatus.pending,
+//       type: MessageType.text,
+//     );
+
+//     await messageLocal.saveMessage(msg);
+
+//     controller.clear();
+//     _loadMessages();
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return AppScaffold(
+//       title: 'Chat &',
+//       body: loading
+//           ? const Center(child: AppLoadingIndicator())
+//           : Column(
+//               children: [
+//                 Expanded(
+//                   child: ListView.builder(
+//                     padding: const EdgeInsets.all(AppSpacing.m),
+//                     itemCount: messages.length,
+//                     itemBuilder: (_, index) {
+//                       final msg = messages[index];
+//                       final isMe = msg.senderId == widget.currentUserId;
+
+//                       return Padding(
+//                         padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
+//                         child: MessageBubble(
+//                           text: msg.content,
+//                           type: isMe ? BubbleType.outgoing : BubbleType.incoming,
+//                         ),
+//                       );
+//                     },
+//                   ),
+//                 ),
+//                 MessageInputBar(
+//                   controller: controller,
+//                   onSend: _sendMessage,
+//                 ),
+//               ],
+//             ),
+//     );
+//   }
+// }

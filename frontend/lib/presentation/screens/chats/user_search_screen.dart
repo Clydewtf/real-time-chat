@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/data/repositories/chat_repository.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/dtos/user_dto.dart';
 import '../../../logic/services/providers.dart';
@@ -61,10 +62,10 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
     );
     if (currentUserId == null) return;
 
-    final chatService = ref.read(chatServiceProvider);
+    final chatRepository = ref.read(chatRepositoryProvider);
     final client = ref.read(dynamicGraphQLClientProvider);
 
-    final chatId = await chatService.createOrGetPrivateChat(
+    final chatId = await chatRepository.createOrGetPrivateChat(
       client: client,
       currentUserId: currentUserId,
       username: user.username,
