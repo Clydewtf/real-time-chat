@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:frontend/data/datasources/local/drift/message_mapper.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../domain/entities/message.dart';
@@ -12,13 +15,15 @@ class MessageRepository {
   final MessageRemoteDatasource remote;
   final ChatRepository chatRepository;
 
+  StreamSubscription<Map<String, dynamic>>? _subscription;
+
   MessageRepository({
     required this.local,
     required this.remote,
     required this.chatRepository,
   });
 
-  /// OFFLINE-FIRST SEND
+  /// OFFLINE-FIRST send message
   Future<void> sendMessage({
     required GraphQLClient client,
     required Message message,
@@ -125,6 +130,31 @@ class MessageRepository {
       chatId: incoming.chatId,
       lastMessageId: incoming.id,
     );
+  }
+
+  /// Subscribe to messages from local db
+  Stream<List<Message>> watchMessages(String chatId) {
+    return local.watchMessages(chatId);
+  }
+
+  /// Subscribe to realtime messages for a chat
+  void subscribeToChat({
+    required GraphQLClient client,
+    required String chatId,
+  }) {
+    _subscription?.cancel();
+
+    _subscription = remote
+        .subscribeNewMessages(client, chatId)
+        .listen((json) async {
+      final message = Message.fromJson(json);
+      await applyIncomingMessage(message);      
+    });
+  }
+
+  void unsubscribeFromChat() {
+    _subscription?.cancel();
+    _subscription = null;
   }
 
   /// Helpers

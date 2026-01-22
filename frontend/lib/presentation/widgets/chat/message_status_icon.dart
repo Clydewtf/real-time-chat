@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/theme.dart';
+import '../../../domain/value_objects/message_status.dart';
 
-
-enum MessageStatus { sent, delivered, read, pending, error }
 
 class MessageStatusIcon extends StatelessWidget {
   final MessageStatus status;
@@ -24,7 +23,7 @@ class MessageStatusIcon extends StatelessWidget {
       case MessageStatus.pending:
         icon = Icon(Icons.access_time, size: 16, color: AppTheme.lightOnPrimary);
         break;
-      case MessageStatus.error:
+      case MessageStatus.failed:
         icon = Icon(Icons.error, size: 16, color: AppTheme.lightError);
         break;
     }

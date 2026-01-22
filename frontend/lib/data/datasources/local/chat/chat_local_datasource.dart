@@ -44,6 +44,21 @@ class ChatLocalDatasource {
         .toList();
   }
 
+  /// Subscription to chats
+  Stream<List<Chat>> watchUserChats(String userId) {
+    return db.select(db.chatsTable).watch().map(
+      (rows) => rows
+          .map((row) => row.toDomain())
+          .where((chat) => chat.participantIds.contains(userId))
+          .toList()
+        ..sort((a, b) {
+          final aTime = a.updatedAt ?? a.createdAt;
+          final bTime = b.updatedAt ?? b.createdAt;
+          return bTime.compareTo(aTime);
+        }),
+    );
+  }
+
   Future<void> updateLastMessageId(String chatId, String messageId) async {
     await (db.update(db.chatsTable)..where((tbl) => tbl.id.equals(chatId)))
         .write(
