@@ -70,4 +70,12 @@ class MessageLocalDatasource {
     
     return row?.toDomain();
   }
+
+  Stream<List<Message>> watchMessages(String chatId) {
+    return (db.select(db.messagesTable)
+          ..where((tbl) => tbl.chatId.equals(chatId))
+          ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
+        .watch()
+        .map((rows) => rows.map((r) => r.toDomain()).toList());
+  }
 }
