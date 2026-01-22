@@ -49,6 +49,11 @@ class ChatRepository {
     return chat.id;
   }
 
+  /// Subscribe to chats from local db
+  Stream<List<Chat>> watchChatsForUser(String userId) {
+    return local.watchUserChats(userId);
+  }
+
   /// Sync all chats for current user from remote
   Future<void> syncChats(
     GraphQLClient client,
