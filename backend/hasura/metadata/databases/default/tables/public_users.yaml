@@ -1,0 +1,62 @@
+table:
+  name: users
+  schema: public
+array_relationships:
+  - name: chat_participants
+    using:
+      foreign_key_constraint_on:
+        column: user_id
+        table:
+          name: chat_participants
+          schema: public
+  - name: chats
+    using:
+      foreign_key_constraint_on:
+        column: created_by
+        table:
+          name: chats
+          schema: public
+  - name: messages
+    using:
+      foreign_key_constraint_on:
+        column: sender_id
+        table:
+          name: messages
+          schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - about
+        - avatar_url
+        - created_at
+        - display_name
+        - id
+        - last_seen
+        - online_status
+        - username
+      filter: {}
+      query_root_fields:
+        - select
+        - select_by_pk
+      subscription_root_fields:
+        - select
+        - select_by_pk
+    comment: ""
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - about
+        - avatar_url
+        - display_name
+        - last_seen
+        - online_status
+        - username
+      filter:
+        id:
+          _eq: X-Hasura-User-Id
+      check:
+        id:
+          _eq: X-Hasura-User-Id
+    comment: ""

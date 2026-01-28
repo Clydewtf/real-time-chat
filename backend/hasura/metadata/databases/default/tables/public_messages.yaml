@@ -1,0 +1,78 @@
+table:
+  name: messages
+  schema: public
+object_relationships:
+  - name: chat
+    using:
+      foreign_key_constraint_on: chat_id
+  - name: message
+    using:
+      foreign_key_constraint_on: reply_to_message_id
+  - name: user
+    using:
+      foreign_key_constraint_on: sender_id
+array_relationships:
+  - name: chats
+    using:
+      foreign_key_constraint_on:
+        column: last_message_id
+        table:
+          name: chats
+          schema: public
+  - name: messages
+    using:
+      foreign_key_constraint_on:
+        column: reply_to_message_id
+        table:
+          name: messages
+          schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check:
+        sender_id:
+          _eq: X-Hasura-User-Id
+      set:
+        content: ""
+        status: sent
+      columns:
+        - chat_id
+        - content
+        - sender_id
+        - status
+        - type
+    comment: ""
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - chat_id
+        - content
+        - created_at
+        - id
+        - sender_id
+        - status
+        - type
+      filter:
+        chat:
+          chat_participants:
+            user_id:
+              _eq: X-Hasura-User-Id
+      query_root_fields:
+        - select
+      subscription_root_fields:
+        - select
+    comment: ""
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - content
+        - status
+      filter:
+        sender_id:
+          _eq: X-Hasura-User-Id
+      check:
+        sender_id:
+          _eq: X-Hasura-User-Id
+    comment: ""

@@ -1,0 +1,26 @@
+table:
+  name: chat_participants
+  schema: public
+object_relationships:
+  - name: chat
+    using:
+      foreign_key_constraint_on: chat_id
+  - name: user
+    using:
+      foreign_key_constraint_on: user_id
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - chat_id
+        - joined_at
+        - role
+        - user_id
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      query_root_fields:
+        - select
+      subscription_root_fields:
+        - select
+    comment: ""
