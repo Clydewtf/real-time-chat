@@ -1,3 +1,5 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:frontend/data/datasources/remote/chat/chat_remote_datasource.dart';
@@ -17,7 +19,7 @@ import '../../domain/entities/chat.dart';
 import '../../domain/entities/message.dart';
 import '../state/auth_notifier.dart';
 import '../../core/utils/config.dart';
-
+import '../services/connection_service.dart';
 
 // Drift database provider
 final appDatabaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
@@ -35,7 +37,9 @@ final chatRemoteDatasourceProvider = Provider<ChatRemoteDatasource>((ref) {
   return ChatRemoteDatasource();
 });
 
-final messageRemoteDatasourceProvider = Provider<MessageRemoteDatasource>((ref) {
+final messageRemoteDatasourceProvider = Provider<MessageRemoteDatasource>((
+  ref,
+) {
   return MessageRemoteDatasource();
 });
 
@@ -80,51 +84,159 @@ final messageRepositoryProvider = Provider<MessageRepository>((ref) {
   );
 });
 
-// Service providers
-// final chatServiceProvider = Provider<ChatService>((ref) {
-//   final chatLocal = ref.watch(chatLocalDatasourceProvider);
-//   final messageLocal = ref.watch(messageLocalDatasourceProvider);
-//   final userRepo = ref.watch(userRepositoryProvider);
-//   return ChatService(chatLocal: chatLocal, messageLocal: messageLocal, userRepository: userRepo);
-// });
-
 final currentUserIdProvider = FutureProvider<String?>((ref) async {
   final repo = ref.read(authRepositoryProvider);
   return repo.getCurrentUserId();
 });
 
 // Notifier providers
-final authNotifierProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((
+  ref,
+) {
   final repo = ref.watch(authRepositoryProvider);
   return AuthNotifier(repo);
 });
 
 // Stream providers
-final userChatsProvider = StreamProvider.family<List<Chat>, String>((ref, userId) {
+final userChatsProvider = StreamProvider.family<List<Chat>, String>((
+  ref,
+  userId,
+) {
   final repo = ref.watch(chatRepositoryProvider);
   return repo.watchChatsForUser(userId);
 });
 
-final chatMessagesProvider = StreamProvider.family<List<Message>, String>((ref, chatId) {
+final chatMessagesProvider = StreamProvider.family<List<Message>, String>((
+  ref,
+  chatId,
+) {
   final repo = ref.watch(messageRepositoryProvider);
   return repo.watchMessages(chatId);
 });
 
-// GraphQLClient Provider
+// GraphQLClient provider
 final dynamicGraphQLClientProvider = Provider<GraphQLClient>((ref) {
   final authState = ref.watch(authNotifierProvider);
   final token = authState.token;
 
   final httpLink = HttpLink(
     AppConfig.graphqlEndpoint,
-    defaultHeaders: token != null
-        ? {'Authorization': 'Bearer $token'}
-        : {},
+    defaultHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
   );
 
-  return GraphQLClient(
-    cache: GraphQLCache(),
-    link: httpLink,
+  final websocketLink = WebSocketLink(
+    AppConfig.graphqlWsEndpoint,
+    config: SocketClientConfig(
+      autoReconnect: true,
+      initialPayload: () => {
+        'headers': token != null ? {'Authorization': 'Bearer $token'} : {},
+      },
+    ),
   );
+  print(token);
+
+  final link = Link.split(
+    (request) => request.isSubscription,
+    websocketLink,
+    httpLink,
+  );
+
+  return GraphQLClient(cache: GraphQLCache(), link: link);
+});
+
+// GraphQL client with explicit token provider (for sync / background)
+final graphQLClientWithTokenProvider = Provider.family<GraphQLClient, String>((
+  ref,
+  token,
+) {
+  final httpLink = HttpLink(
+    AppConfig.graphqlEndpoint,
+    defaultHeaders: {'Authorization': 'Bearer $token'},
+  );
+
+  final websocketLink = WebSocketLink(
+    AppConfig.graphqlWsEndpoint,
+    config: SocketClientConfig(
+      autoReconnect: true,
+      initialPayload: () => {
+        'headers': {'Authorization': 'Bearer $token'},
+      },
+    ),
+  );
+
+  final link = Link.split(
+    (request) => request.isSubscription,
+    websocketLink,
+    httpLink,
+  );
+
+  return GraphQLClient(cache: GraphQLCache(), link: link);
+});
+
+// Sync listener provider
+final authSyncListenerProvider = Provider<void>((ref) {
+  ref.listen<AuthState>(authNotifierProvider, (prev, next) async {
+    if (prev?.token == null && next.token != null) {
+      final token = next.token!;
+      final client = ref.read(graphQLClientWithTokenProvider(token));
+
+      final authRepo = ref.read(authRepositoryProvider);
+      final chatRepo = ref.read(chatRepositoryProvider);
+      final messageRepo = ref.read(messageRepositoryProvider);
+
+      final userId = await authRepo.getCurrentUserId();
+      if (userId == null) return;
+
+      try {
+        await chatRepo.syncChats(client, userId);
+        await messageRepo.retryPendingMessages(client);
+      } catch (e, st) {
+        debugPrintStack(stackTrace: st);
+      }
+    }
+  });
+});
+
+// Connectivity provider
+final connectionStateProvider = StreamProvider<AppConnectionState>((
+  ref,
+) async* {
+  final connectivity = Connectivity();
+
+  Future<AppConnectionState> checkConnection() async {
+    final results = await connectivity.checkConnectivity();
+    final hasNetwork =
+        !(results.length == 1 && results.contains(ConnectivityResult.none));
+
+    if (!hasNetwork) {
+      return AppConnectionState.offline;
+    }
+
+    final client = ref.read(dynamicGraphQLClientProvider);
+    await Future.delayed(const Duration(milliseconds: 300));
+    final reachable = await pingGraphQL(client);
+
+    return reachable ? AppConnectionState.online : AppConnectionState.offline;
+  }
+
+  yield AppConnectionState.connecting;
+  yield await checkConnection();
+
+  await for (final results in connectivity.onConnectivityChanged) {
+    final hasNetwork =
+        !(results.length == 1 && results.contains(ConnectivityResult.none));
+
+    if (!hasNetwork) {
+      yield AppConnectionState.offline;
+      continue;
+    }
+
+    yield AppConnectionState.connecting;
+
+    final client = ref.read(dynamicGraphQLClientProvider);
+    await Future.delayed(const Duration(milliseconds: 300));
+    final reachable = await pingGraphQL(client);
+
+    yield reachable ? AppConnectionState.online : AppConnectionState.offline;
+  }
 });
