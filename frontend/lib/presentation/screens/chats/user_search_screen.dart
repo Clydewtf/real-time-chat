@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frontend/data/repositories/chat_repository.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/dtos/user_dto.dart';
 import '../../../logic/services/providers.dart';
@@ -12,7 +11,6 @@ import '../../widgets/common/app_loading_indicator.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/constants/app_spacing.dart';
 import '../../widgets/layout/app_scaffold.dart';
-
 
 class UserSearchScreen extends ConsumerStatefulWidget {
   const UserSearchScreen({super.key});
@@ -110,10 +108,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.m),
-                AppButton(
-                  label: "Cancel",
-                  onPressed: () => context.pop(),
-                ),
+                AppButton(label: "Cancel", onPressed: () => context.pop()),
               ],
             ),
           ),
@@ -121,21 +116,21 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
             child: loading
                 ? const Center(child: AppLoadingIndicator())
                 : results.isEmpty
-                    ? const Center(child: Text("Nothing found"))
-                    : ListView.separated(
-                        itemCount: results.length,
-                        separatorBuilder: (_, __) => const AppDivider(),
-                        itemBuilder: (_, index) {
-                          final user = results[index];
-                          return ChatCard(
-                            name: user.username,
-                            avatarUrl: user.avatarUrl ?? '',
-                            lastMessage: '',
-                            time: '',
-                            onTap: () => _openChat(user),
-                          );
-                        },
-                      ),
+                ? const Center(child: Text("Nothing found"))
+                : ListView.separated(
+                    itemCount: results.length,
+                    separatorBuilder: (_, __) => const AppDivider(),
+                    itemBuilder: (_, index) {
+                      final user = results[index];
+                      return ChatCard(
+                        name: user.username,
+                        avatarUrl: user.avatarUrl ?? '',
+                        lastMessage: '',
+                        time: '',
+                        onTap: () => _openChat(user),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
