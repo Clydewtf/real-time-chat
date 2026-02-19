@@ -6,7 +6,6 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'logic/services/providers.dart';
 import 'core/utils/theme.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
@@ -19,6 +18,8 @@ class ChatApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(authSyncListenerProvider);
+
     final router = ref.watch(appRouterProvider);
     final client = ref.watch(dynamicGraphQLClientProvider);
 
