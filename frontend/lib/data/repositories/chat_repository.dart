@@ -4,7 +4,6 @@ import '../datasources/local/chat/chat_local_datasource.dart';
 import '../datasources/remote/chat/chat_remote_datasource.dart';
 import 'user_repository.dart';
 
-
 class ChatRepository {
   final ChatLocalDatasource local;
   final ChatRemoteDatasource remote;
@@ -55,10 +54,7 @@ class ChatRepository {
   }
 
   /// Sync all chats for current user from remote
-  Future<void> syncChats(
-    GraphQLClient client,
-    String userId,
-  ) async {
+  Future<void> syncChats(GraphQLClient client, String userId) async {
     final remoteChatsJson = await remote.getChatsForUser(client, userId);
 
     for (final chatJson in remoteChatsJson) {
@@ -73,6 +69,7 @@ class ChatRepository {
     required String lastMessageId,
     DateTime? updatedAt,
   }) async {
+    // now only updating last message id
     await local.updateLastMessageId(chatId, lastMessageId);
   }
 

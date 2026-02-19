@@ -1,13 +1,11 @@
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../../../domain/value_objects/message_type.dart';
 
-
-class MessageRemoteDatasource  {
+class MessageRemoteDatasource {
   /// Send message
   Future<Map<String, dynamic>> sendMessage({
     required GraphQLClient client,
     required String chatId,
-    required String senderId,
     required String content,
     MessageType type = MessageType.text,
     String? replyToMessageId,
@@ -17,7 +15,6 @@ class MessageRemoteDatasource  {
     const sendMessageMutation = '''
       mutation SendMessage(
         \$chatId: uuid!
-        \$senderId: uuid!
         \$content: String!
         \$type: String!
         \$replyToMessageId: uuid
@@ -27,7 +24,6 @@ class MessageRemoteDatasource  {
         insert_messages_one(
           object: {
             chat_id: \$chatId
-            sender_id: \$senderId
             content: \$content
             type: \$type
             reply_to_message_id: \$replyToMessageId
@@ -55,7 +51,6 @@ class MessageRemoteDatasource  {
         document: gql(sendMessageMutation),
         variables: {
           'chatId': chatId,
-          'senderId': senderId,
           'content': content,
           'type': type.name,
           'replyToMessageId': replyToMessageId,
@@ -73,7 +68,10 @@ class MessageRemoteDatasource  {
   }
 
   /// Load messages for chat
-  Future<List<Map<String, dynamic>>> getMessages(GraphQLClient client, String chatId) async {
+  Future<List<Map<String, dynamic>>> getMessages(
+    GraphQLClient client,
+    String chatId,
+  ) async {
     const getMessagesQuery = '''
       query GetMessages(\$chatId: uuid!) {
         messages(
@@ -107,13 +105,14 @@ class MessageRemoteDatasource  {
       throw Exception(result.exception.toString());
     }
 
-    return List<Map<String, dynamic>>.from(
-      result.data!['messages'],
-    );
+    return List<Map<String, dynamic>>.from(result.data!['messages']);
   }
 
   /// Subscribe to new messages
-  Stream<Map<String, dynamic>> subscribeNewMessages(GraphQLClient client, String chatId) {
+  Stream<Map<String, dynamic>> subscribeNewMessages(
+    GraphQLClient client,
+    String chatId,
+  ) {
     const newMessagesSubscription = '''
       subscription OnNewMessage(\$chatId: uuid!) {
         messages(
@@ -141,13 +140,20 @@ class MessageRemoteDatasource  {
       variables: {'chatId': chatId},
     );
 
-    return client.subscribe(options).map((result) {
-      if (result.hasException) {
-        throw Exception(result.exception.toString());
-      }
+    return client
+        .subscribe(options)
+        .where((result) {
+          if (result.hasException) {
+            throw Exception(result.exception.toString());
+          }
 
-      final list = result.data!['messages'] as List<dynamic>;
-      return list.first as Map<String, dynamic>;
-    });
+          final list = result.data?['messages'] as List<dynamic>?;
+
+          return list != null && list.isNotEmpty;
+        })
+        .map((result) {
+          final list = result.data!['messages'] as List<dynamic>;
+          return list.first as Map<String, dynamic>;
+        });
   }
 }

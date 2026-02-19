@@ -1,10 +1,13 @@
 import 'package:graphql_flutter/graphql_flutter.dart';
 
-
-class ChatRemoteDatasource  {
+class ChatRemoteDatasource {
   /// Creates a private chat between two users
-  /// Returns chatId
-  Future<Map<String, dynamic>> createPrivateChat({required GraphQLClient client, required String userA, required String userB,}) async {
+  /// Return chat
+  Future<Map<String, dynamic>> createPrivateChat({
+    required GraphQLClient client,
+    required String userA,
+    required String userB,
+  }) async {
     const createPrivateChatMutation = '''
       mutation CreatePrivateChat(\$userA: uuid!, \$userB: uuid!) {
         create_private_chat(args: {user_a: \$userA, user_b: \$userB}) {
@@ -27,10 +30,8 @@ class ChatRemoteDatasource  {
     final result = await client.mutate(
       MutationOptions(
         document: gql(createPrivateChatMutation),
-        variables: {
-          'userA': userA,
-          'userB': userB,
-        },
+        variables: {'userA': userA, 'userB': userB},
+        fetchPolicy: FetchPolicy.networkOnly,
       ),
     );
 
@@ -38,12 +39,23 @@ class ChatRemoteDatasource  {
       throw Exception(result.exception.toString());
     }
 
-    return result.data!['create_private_chat']['id'] as Map<String, dynamic>;
+    final data = result.data?['create_private_chat'] as List<dynamic>?;
+
+    if (data == null || data.isEmpty) {
+      throw Exception(
+        'create_private_chat returned null. Check Hasura select permissions.',
+      );
+    }
+
+    return data.first as Map<String, dynamic>;
   }
 
   /// Fetch all chats for current user
   /// Return list of chats
-  Future<List<Map<String, dynamic>>> getChatsForUser(GraphQLClient client, String userId,) async {
+  Future<List<Map<String, dynamic>>> getChatsForUser(
+    GraphQLClient client,
+    String userId,
+  ) async {
     const getUserChatsQuery = '''
       query GetUserChats(\$userId: uuid!) {
         chats(
@@ -71,7 +83,7 @@ class ChatRemoteDatasource  {
     final result = await client.query(
       QueryOptions(
         document: gql(getUserChatsQuery),
-        variables: {'userId': userId,},
+        variables: {'userId': userId},
         fetchPolicy: FetchPolicy.networkOnly,
       ),
     );
@@ -80,8 +92,6 @@ class ChatRemoteDatasource  {
       throw Exception(result.exception.toString());
     }
 
-    return List<Map<String, dynamic>>.from(
-      result.data!['chats'],
-    );
+    return List<Map<String, dynamic>>.from(result.data!['chats']);
   }
 }
