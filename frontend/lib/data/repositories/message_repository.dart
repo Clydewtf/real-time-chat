@@ -132,8 +132,8 @@ class MessageRepository {
   }
 
   /// Subscribe to messages from local db
-  Stream<List<Message>> watchMessages(String chatId) {
-    return local.watchMessages(chatId);
+  Stream<List<Message>> watchMessages(String chatId, int limit) {
+    return local.watchMessages(chatId, limit);
   }
 
   /// Subscribe to realtime messages for a chat

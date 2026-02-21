@@ -63,6 +63,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (messages) {
                 return ListView.builder(
+                  reverse: true,
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
                   itemCount: messages.length,
                   itemBuilder: (_, index) {

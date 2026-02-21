@@ -84,10 +84,11 @@ class MessageLocalDatasource {
   }
 
   /// Subscription to messages from local db
-  Stream<List<Message>> watchMessages(String chatId) {
+  Stream<List<Message>> watchMessages(String chatId, int limit) {
     return (db.select(db.messagesTable)
           ..where((tbl) => tbl.chatId.equals(chatId))
-          ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+          ..limit(limit))
         .watch()
         .map((rows) => rows.map((r) => r.toDomain()).toList());
   }
