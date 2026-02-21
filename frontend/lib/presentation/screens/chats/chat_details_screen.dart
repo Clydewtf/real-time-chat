@@ -27,30 +27,123 @@ class ChatDetailsScreen extends ConsumerStatefulWidget {
 
 class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   late final TextEditingController controller;
+  late final ScrollController _scrollController;
+  late final ProviderSubscription<AsyncValue<List<Message>>> _messagesSub;
+  static const int _pageSize = 10;
+
+  List<Message> _messages = [];
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
+  DateTime? _oldestCursor;
 
   @override
   void initState() {
     super.initState();
     controller = TextEditingController();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+
+    Future.microtask(_initialLoad);
 
     final repo = ref.read(messageRepositoryProvider);
     final client = ref.read(dynamicGraphQLClientProvider);
 
     repo.syncMessages(client, widget.chatId);
     repo.subscribeToChat(client: client, chatId: widget.chatId);
+
+    _messagesSub = ref.listenManual<AsyncValue<List<Message>>>(
+      chatMessagesProvider(widget.chatId),
+      (previous, next) {
+        next.whenData((messages) {
+          if (messages.isEmpty) return;
+
+          final newest = messages.first;
+          final exists = _messages.any((m) => m.id == newest.id);
+
+          if (!exists) {
+            setState(() {
+              _messages.insert(0, newest);
+            });
+          }
+        });
+      },
+    );
   }
 
   @override
   void dispose() {
+    _messagesSub.close();
+
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+
     ref.read(messageRepositoryProvider).unsubscribeFromChat();
+
     controller.dispose();
     super.dispose();
   }
 
+  Future<void> _initialLoad() async {
+    final repo = ref.read(messageRepositoryProvider);
+    final latest = await repo.getLatestMessages(widget.chatId, _pageSize);
+
+    if (!mounted) return;
+
+    setState(() {
+      _messages = latest;
+      _oldestCursor = latest.isNotEmpty ? latest.last.createdAt : null;
+      _hasMore = latest.length == _pageSize;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+
+    const threshold = 0;
+
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - threshold) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore || _oldestCursor == null) return;
+
+    _isLoadingMore = true;
+    final repo = ref.read(messageRepositoryProvider);
+
+    final older = await repo.getOlderMessages(
+      widget.chatId,
+      _oldestCursor!,
+      _pageSize,
+    );
+
+    if (!mounted) return;
+
+    if (older.isEmpty) {
+      _hasMore = false;
+      _isLoadingMore = false;
+      return;
+    }
+
+    setState(() {
+      _messages.addAll(older);
+      _oldestCursor = older.last.createdAt;
+    });
+
+    _hasMore = older.length == _pageSize;
+    _isLoadingMore = false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
-
     return AppScaffold(
       title: 'Chat',
       centerTitle: true,
@@ -58,32 +151,31 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
       body: Column(
         children: [
           Expanded(
-            child: messagesAsync.when(
-              loading: () => const Center(child: AppLoadingIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (messages) {
-                return ListView.builder(
-                  reverse: true,
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-                  itemCount: messages.length,
-                  itemBuilder: (_, index) {
-                    final msg = messages[index];
-                    final isMe = msg.senderId == widget.currentUserId;
+            child: _messages.isEmpty
+                ? const Center(child: AppLoadingIndicator())
+                : ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+                    itemCount: _messages.length,
+                    itemBuilder: (_, index) {
+                      final msg = _messages[index];
+                      final isMe = msg.senderId == widget.currentUserId;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.xs / 2,
-                      ),
-                      child: MessageBubble(
-                        text: msg.content,
-                        type: isMe ? BubbleType.outgoing : BubbleType.incoming,
-                        status: msg.status,
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xs / 2,
+                        ),
+                        child: MessageBubble(
+                          text: msg.content,
+                          type: isMe
+                              ? BubbleType.outgoing
+                              : BubbleType.incoming,
+                          status: msg.status,
+                        ),
+                      );
+                    },
+                  ),
           ),
           MessageInputBar(
             controller: controller,
