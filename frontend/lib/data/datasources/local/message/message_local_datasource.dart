@@ -16,11 +16,32 @@ class MessageLocalDatasource {
   }
 
   /// Return messages from chat from local db
-  Future<List<Message>> getMessages(String chatId) async {
+  Future<List<Message>> getMessages(String chatId, limit) async {
     final rows =
         await (db.select(db.messagesTable)
               ..where((tbl) => tbl.chatId.equals(chatId))
-              ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
+              ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)])
+              ..limit(limit))
+            .get();
+
+    return rows.map((row) => row.toDomain()).toList();
+  }
+
+  /// Return older messages from chat from loal db
+  Future<List<Message>> getOlderMessages(
+    String chatId,
+    DateTime before,
+    int limit,
+  ) async {
+    final rows =
+        await (db.select(db.messagesTable)
+              ..where(
+                (tbl) =>
+                    tbl.chatId.equals(chatId) &
+                    tbl.createdAt.isSmallerThanValue(before),
+              )
+              ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+              ..limit(limit))
             .get();
 
     return rows.map((row) => row.toDomain()).toList();

@@ -20,6 +20,20 @@ class MessageRepository {
     required this.chatRepository,
   });
 
+  /// Return latest messages
+  Future<List<Message>> getLatestMessages(String chatId, int limit) {
+    return local.getMessages(chatId, limit);
+  }
+
+  /// Return older messages
+  Future<List<Message>> getOlderMessages(
+    String chatId,
+    DateTime before,
+    int limit,
+  ) {
+    return local.getOlderMessages(chatId, before, limit);
+  }
+
   /// OFFLINE-FIRST send message
   Future<void> sendMessage({
     required GraphQLClient client,
