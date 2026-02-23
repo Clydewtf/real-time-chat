@@ -20,7 +20,7 @@ class MessageLocalDatasource {
     final rows =
         await (db.select(db.messagesTable)
               ..where((tbl) => tbl.chatId.equals(chatId))
-              ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)])
+              ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
               ..limit(limit))
             .get();
 
@@ -105,11 +105,10 @@ class MessageLocalDatasource {
   }
 
   /// Subscription to messages from local db
-  Stream<List<Message>> watchMessages(String chatId, int limit) {
+  Stream<List<Message>> watchMessages(String chatId) {
     return (db.select(db.messagesTable)
           ..where((tbl) => tbl.chatId.equals(chatId))
-          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
-          ..limit(limit))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
         .watch()
         .map((rows) => rows.map((r) => r.toDomain()).toList());
   }

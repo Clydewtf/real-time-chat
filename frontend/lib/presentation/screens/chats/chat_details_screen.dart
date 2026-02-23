@@ -12,7 +12,47 @@ import '../../widgets/chat/message_input_bar.dart';
 import '../../widgets/common/app_loading_indicator.dart';
 import '../../widgets/constants/app_spacing.dart';
 import '../../widgets/layout/app_scaffold.dart';
+// _messagesSub = ref.listenManual<AsyncValue<List<Message>>>(
+//   chatMessagesProvider(widget.chatId),
+//   (previous, next) {
+//     next.whenData((messages) {
+//       if (!mounted || messages.isEmpty) return;
 
+//       final newest = messages.first;
+
+//       final pendingIndex = _messages.indexWhere(
+//         (m) => m.localTempId != null && m.localTempId == newest.localTempId,
+//       );
+
+//       if (pendingIndex != -1) {
+//         setState(() {
+//           _messages[pendingIndex] = newest;
+//         });
+//         return;
+//       }
+
+//       final exists = _messages.any((m) => m.id == newest.id);
+
+//       if (!exists) {
+//         setState(() {
+//           _messages.insert(0, newest);
+//         });
+
+//         if (_isNearBottom) {
+//           WidgetsBinding.instance.addPostFrameCallback((_) {
+//             if (!_scrollController.hasClients) return;
+
+//             _scrollController.animateTo(
+//               0,
+//               duration: const Duration(milliseconds: 250),
+//               curve: Curves.easeOut,
+//             );
+//           });
+//         }
+//       }
+//     });
+//   },
+// );
 class ChatDetailsScreen extends ConsumerStatefulWidget {
   final String chatId;
   final String currentUserId;
@@ -52,6 +92,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
 
+    _messages.clear();
     Future.microtask(_initialLoad);
 
     _repo = ref.read(messageRepositoryProvider);
@@ -64,27 +105,31 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
       chatMessagesProvider(widget.chatId),
       (previous, next) {
         next.whenData((messages) {
-          if (messages.isEmpty) return;
+          if (!mounted || messages.isEmpty) return;
 
-          final newest = messages.first;
+          bool updated = false;
 
-          final pendingIndex = _messages.indexWhere(
-            (m) => m.localTempId != null && m.localTempId == newest.localTempId,
-          );
+          for (final msg in messages) {
+            final pendingIndex = _messages.indexWhere(
+              (m) => m.localTempId != null && m.localTempId == msg.localTempId,
+            );
+            if (pendingIndex != -1) {
+              _messages[pendingIndex] = msg;
+              updated = true;
+              continue;
+            }
 
-          if (pendingIndex != -1) {
-            setState(() {
-              _messages[pendingIndex] = newest;
-            });
-            return;
+            final exists = _messages.any((m) => m.id == msg.id);
+            if (!exists) {
+              _messages.add(msg);
+              updated = true;
+            }
           }
 
-          final exists = _messages.any((m) => m.id == newest.id);
+          if (updated) {
+            _messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-          if (!exists) {
-            setState(() {
-              _messages.insert(0, newest);
-            });
+            setState(() {});
 
             if (_isNearBottom) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -155,9 +200,8 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     if (_isLoadingMore || !_hasMore || _oldestCursor == null) return;
 
     _isLoadingMore = true;
-    final repo = ref.read(messageRepositoryProvider);
 
-    final older = await repo.getOlderMessages(
+    final older = await _repo.getOlderMessages(
       widget.chatId,
       _oldestCursor!,
       _pageSize,
