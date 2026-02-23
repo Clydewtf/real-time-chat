@@ -25,6 +25,8 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOutgoing = type == BubbleType.outgoing;
+    final maxBubbleWidth =
+        MediaQuery.of(context).size.width * (isOutgoing ? 0.65 : 0.75);
     final bgColor = isOutgoing ? AppTheme.lightPrimary : AppTheme.lightSurface;
     final textColor = isOutgoing
         ? AppTheme.lightOnPrimary
@@ -38,25 +40,30 @@ class MessageBubble extends StatelessWidget {
       children: [
         if (!isOutgoing) const SizedBox(width: AppSpacing.m),
         Flexible(
-          child: AppCard(
-            color: bgColor,
-            radius: AppRadius.l,
-            padding: const EdgeInsets.all(AppSpacing.s + AppSpacing.xs),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  text,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium!.copyWith(color: textColor),
-                ),
-                if (isOutgoing)
-                  Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.xs),
-                    child: MessageStatusIcon(status: status),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+            child: AppCard(
+              color: bgColor,
+              radius: AppRadius.l,
+              padding: const EdgeInsets.all(AppSpacing.s + AppSpacing.xs),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    text,
+                    softWrap: true,
+                    overflow: TextOverflow.clip,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium!.copyWith(color: textColor),
                   ),
-              ],
+                  if (isOutgoing)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      child: MessageStatusIcon(status: status),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
