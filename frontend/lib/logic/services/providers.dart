@@ -111,7 +111,7 @@ final chatMessagesProvider = StreamProvider.family<List<Message>, String>((
   chatId,
 ) {
   final repo = ref.watch(messageRepositoryProvider);
-  return repo.watchMessages(chatId, 10);
+  return repo.watchMessages(chatId, 15);
 });
 
 // GraphQLClient provider

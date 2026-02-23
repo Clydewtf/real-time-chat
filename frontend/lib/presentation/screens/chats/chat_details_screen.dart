@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../../../data/repositories/message_repository.dart';
 import '../../../domain/entities/message.dart';
 import '../../../domain/value_objects/message_status.dart';
 import '../../../domain/value_objects/message_type.dart';
@@ -29,11 +31,17 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   late final TextEditingController controller;
   late final ScrollController _scrollController;
   late final ProviderSubscription<AsyncValue<List<Message>>> _messagesSub;
-  static const int _pageSize = 10;
+  late final MessageRepository _repo;
+  late final GraphQLClient _client;
+
+  static const int _pageSize = 15;
+  static const double _bottomThreshold = 150;
+  static const double _topThreshold = 0;
 
   List<Message> _messages = [];
   bool _isLoadingMore = false;
   bool _hasMore = true;
+  bool _isNearBottom = true;
 
   DateTime? _oldestCursor;
 
@@ -46,11 +54,11 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
 
     Future.microtask(_initialLoad);
 
-    final repo = ref.read(messageRepositoryProvider);
-    final client = ref.read(dynamicGraphQLClientProvider);
+    _repo = ref.read(messageRepositoryProvider);
+    _client = ref.read(dynamicGraphQLClientProvider);
 
-    repo.syncMessages(client, widget.chatId);
-    repo.subscribeToChat(client: client, chatId: widget.chatId);
+    _repo.syncMessages(_client, widget.chatId);
+    _repo.subscribeToChat(client: _client, chatId: widget.chatId);
 
     _messagesSub = ref.listenManual<AsyncValue<List<Message>>>(
       chatMessagesProvider(widget.chatId),
@@ -59,12 +67,36 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
           if (messages.isEmpty) return;
 
           final newest = messages.first;
+
+          final pendingIndex = _messages.indexWhere(
+            (m) => m.localTempId != null && m.localTempId == newest.localTempId,
+          );
+
+          if (pendingIndex != -1) {
+            setState(() {
+              _messages[pendingIndex] = newest;
+            });
+            return;
+          }
+
           final exists = _messages.any((m) => m.id == newest.id);
 
           if (!exists) {
             setState(() {
               _messages.insert(0, newest);
             });
+
+            if (_isNearBottom) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_scrollController.hasClients) return;
+
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                );
+              });
+            }
           }
         });
       },
@@ -78,7 +110,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
 
-    ref.read(messageRepositoryProvider).unsubscribeFromChat();
+    _repo.unsubscribeFromChat();
 
     controller.dispose();
     super.dispose();
@@ -105,10 +137,16 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
 
-    const threshold = 0;
+    final position = _scrollController.position;
+    final isNearBottom = position.pixels <= _bottomThreshold;
 
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - threshold) {
+    if (_isNearBottom != isNearBottom) {
+      setState(() {
+        _isNearBottom = isNearBottom;
+      });
+    }
+
+    if (position.pixels >= position.maxScrollExtent - _topThreshold) {
       _loadMore();
     }
   }
@@ -198,6 +236,10 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
               );
 
               controller.clear();
+
+              setState(() {
+                _messages.insert(0, message);
+              });
 
               await repo.sendMessage(client: client, message: message);
             },
