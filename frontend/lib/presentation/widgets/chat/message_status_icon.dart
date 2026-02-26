@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/theme.dart';
 import '../../../domain/value_objects/message_status.dart';
 
-
 class MessageStatusIcon extends StatelessWidget {
   final MessageStatus status;
   const MessageStatusIcon({super.key, required this.status});
@@ -15,13 +14,17 @@ class MessageStatusIcon extends StatelessWidget {
         icon = Icon(Icons.check, size: 16, color: AppTheme.lightOnPrimary);
         break;
       case MessageStatus.delivered:
-        icon = Icon(Icons.done_all, size: 16, color: AppTheme.lightOnPrimary);
+        icon = Icon(Icons.done, size: 16, color: AppTheme.lightOnPrimary);
         break;
       case MessageStatus.read:
         icon = Icon(Icons.done_all, size: 16, color: Colors.blue);
         break;
       case MessageStatus.pending:
-        icon = Icon(Icons.access_time, size: 16, color: AppTheme.lightOnPrimary);
+        icon = Icon(
+          Icons.access_time,
+          size: 16,
+          color: AppTheme.lightOnPrimary,
+        );
         break;
       case MessageStatus.failed:
         icon = Icon(Icons.error, size: 16, color: AppTheme.lightError);
