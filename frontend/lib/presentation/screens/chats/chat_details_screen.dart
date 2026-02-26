@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/presentation/widgets/chat/scroll_to_bottom_button.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/repositories/message_repository.dart';
@@ -38,7 +39,9 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   static const double _bottomThreshold = 150;
   static const double _topThreshold = 0;
 
+  int _unreadCount = 0;
   List<Message> _messages = [];
+  bool _showScrollToBottom = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   bool _isNearBottom = true;
@@ -83,6 +86,10 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
             if (!exists) {
               _messages.add(msg);
               updated = true;
+
+              if (!_isNearBottom) {
+                _unreadCount++;
+              }
             }
           }
 
@@ -148,6 +155,11 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     if (_isNearBottom != isNearBottom) {
       setState(() {
         _isNearBottom = isNearBottom;
+        _showScrollToBottom = !isNearBottom;
+
+        if (isNearBottom) {
+          _unreadCount = 0;
+        }
       });
     }
 
@@ -195,6 +207,20 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     _isLoadingMore = false;
   }
 
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+
+    setState(() {
+      _unreadCount = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -204,31 +230,47 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
-                ? const Center(child: AppLoadingIndicator())
-                : ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-                    itemCount: _messages.length,
-                    itemBuilder: (_, index) {
-                      final msg = _messages[index];
-                      final isMe = msg.senderId == widget.currentUserId;
-
-                      return Padding(
+            child: Stack(
+              children: [
+                _messages.isEmpty
+                    ? const Center(child: AppLoadingIndicator())
+                    : ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
                         padding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.xs / 2,
+                          vertical: AppSpacing.m,
                         ),
-                        child: MessageBubble(
-                          text: msg.content,
-                          type: isMe
-                              ? BubbleType.outgoing
-                              : BubbleType.incoming,
-                          status: msg.status,
-                        ),
-                      );
-                    },
+                        itemCount: _messages.length,
+                        itemBuilder: (_, index) {
+                          final msg = _messages[index];
+                          final isMe = msg.senderId == widget.currentUserId;
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.xs / 2,
+                            ),
+                            child: MessageBubble(
+                              text: msg.content,
+                              type: isMe
+                                  ? BubbleType.outgoing
+                                  : BubbleType.incoming,
+                              status: msg.status,
+                            ),
+                          );
+                        },
+                      ),
+
+                if (_showScrollToBottom)
+                  Positioned(
+                    right: AppSpacing.m,
+                    bottom: AppSpacing.m,
+                    child: ScrollToBottomButton(
+                      unreadCount: _unreadCount,
+                      onPressed: _scrollToBottom,
+                    ),
                   ),
+              ],
+            ),
           ),
           MessageInputBar(
             controller: controller,
