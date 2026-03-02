@@ -34,6 +34,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   late final ProviderSubscription<AsyncValue<List<Message>>> _messagesSub;
   late final MessageRepository _repo;
   late final GraphQLClient _client;
+  final Set<String> _pendingReadIds = {};
 
   static const int _pageSize = 15;
   static const double _bottomThreshold = 150;
@@ -45,6 +46,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   bool _isNearBottom = true;
+  bool _isMarkingRead = false;
 
   DateTime? _oldestCursor;
 
@@ -77,6 +79,9 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
               (m) => m.localTempId != null && m.localTempId == msg.localTempId,
             );
             if (pendingIndex != -1) {
+              if (_pendingReadIds.contains(msg.id)) {
+                continue;
+              }
               _messages[pendingIndex] = msg;
               updated = true;
               continue;
@@ -89,6 +94,8 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
 
               if (!_isNearBottom) {
                 _unreadCount++;
+              } else if (msg.senderId != widget.currentUserId) {
+                _markVisibleMessagesAsRead();
               }
             }
           }
@@ -132,6 +139,12 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     final repo = ref.read(messageRepositoryProvider);
     final latest = await repo.getLatestMessages(widget.chatId, _pageSize);
 
+    final db = ref.read(appDatabaseProvider);
+    final rows = await db.select(db.messagesTable).get();
+    for (final row in rows) {
+      print('${row.id} | ${row.status} | ${row.content} | ${row.createdAt}');
+    }
+
     if (!mounted) return;
 
     setState(() {
@@ -139,6 +152,20 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
       _oldestCursor = latest.isNotEmpty ? latest.last.createdAt : null;
       _hasMore = latest.length == _pageSize;
     });
+
+    final unreadIncomingIds = _messages
+        .where(
+          (m) =>
+              m.senderId != widget.currentUserId &&
+              m.status != MessageStatus.read &&
+              m.remoteId != null,
+        )
+        .map((m) => m.remoteId!)
+        .toList();
+
+    if (unreadIncomingIds.isNotEmpty) {
+      await _repo.markMessagesAsRead(unreadIncomingIds);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -158,7 +185,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
         _showScrollToBottom = !isNearBottom;
 
         if (isNearBottom) {
-          _unreadCount = 0;
+          _markVisibleMessagesAsRead();
         }
       });
     }
@@ -205,6 +232,47 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
 
     _hasMore = uniqueOlder.length == _pageSize;
     _isLoadingMore = false;
+  }
+
+  Future<void> _markVisibleMessagesAsRead() async {
+    if (_isMarkingRead) return;
+
+    final unreadIncoming = _messages.where(
+      (m) =>
+          m.senderId != widget.currentUserId && m.status != MessageStatus.read,
+    );
+    final remoteIds = unreadIncoming
+        .where((m) => m.remoteId != null)
+        .map((m) => m.remoteId!)
+        .toList();
+
+    if (remoteIds.isEmpty) return;
+
+    _isMarkingRead = true;
+
+    setState(() {
+      for (final id in remoteIds) {
+        final index = _messages.indexWhere((m) => m.id == id);
+        if (index != -1) {
+          _messages[index] = _messages[index].copyWith(
+            status: MessageStatus.read,
+          );
+        }
+      }
+
+      _unreadCount = 0;
+    });
+
+    _pendingReadIds.addAll(remoteIds);
+
+    try {
+      await _repo.markMessagesAsRead(remoteIds);
+    } catch (e) {
+      print('UI ERROR: $e');
+    } finally {
+      _pendingReadIds.removeAll(remoteIds);
+      _isMarkingRead = false;
+    }
   }
 
   void _scrollToBottom() {
