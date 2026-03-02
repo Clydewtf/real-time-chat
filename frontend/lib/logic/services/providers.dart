@@ -40,7 +40,8 @@ final chatRemoteDatasourceProvider = Provider<ChatRemoteDatasource>((ref) {
 final messageRemoteDatasourceProvider = Provider<MessageRemoteDatasource>((
   ref,
 ) {
-  return MessageRemoteDatasource();
+  final client = ref.watch(dynamicGraphQLClientProvider);
+  return MessageRemoteDatasource(client);
 });
 
 // Local datasource providers
