@@ -16,11 +16,32 @@ class MessageLocalDatasource {
   }
 
   /// Return messages from chat from local db
-  Future<List<Message>> getMessages(String chatId) async {
+  Future<List<Message>> getMessages(String chatId, limit) async {
     final rows =
         await (db.select(db.messagesTable)
               ..where((tbl) => tbl.chatId.equals(chatId))
-              ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
+              ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+              ..limit(limit))
+            .get();
+
+    return rows.map((row) => row.toDomain()).toList();
+  }
+
+  /// Return older messages from chat from loal db
+  Future<List<Message>> getOlderMessages(
+    String chatId,
+    DateTime before,
+    int limit,
+  ) async {
+    final rows =
+        await (db.select(db.messagesTable)
+              ..where(
+                (tbl) =>
+                    tbl.chatId.equals(chatId) &
+                    tbl.createdAt.isSmallerThanValue(before),
+              )
+              ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+              ..limit(limit))
             .get();
 
     return rows.map((row) => row.toDomain()).toList();
@@ -33,6 +54,29 @@ class MessageLocalDatasource {
   ) async {
     await (db.update(db.messagesTable)
           ..where((tbl) => tbl.id.equals(messageId)))
+        .write(MessagesTableCompanion(status: Value(status.name)));
+  }
+
+  /// Update messages status locally by localIds
+  Future<void> updateMessagesStatus(
+    List<String> localIds,
+    MessageStatus status,
+  ) async {
+    if (localIds.isEmpty) return;
+
+    await (db.update(db.messagesTable)..where((tbl) => tbl.id.isIn(localIds)))
+        .write(MessagesTableCompanion(status: Value(status.name)));
+  }
+
+  /// Update messages status locally by remoteIds
+  Future<void> updateMessagesStatusByRemoteIds(
+    List<String> remoteIds,
+    MessageStatus status,
+  ) async {
+    if (remoteIds.isEmpty) return;
+
+    await (db.update(db.messagesTable)
+          ..where((tbl) => tbl.remoteId.isIn(remoteIds)))
         .write(MessagesTableCompanion(status: Value(status.name)));
   }
 
@@ -50,19 +94,13 @@ class MessageLocalDatasource {
     )..where((tbl) => tbl.chatId.equals(chatId))).go();
   }
 
-  /// Update message remote id & status locally
+  /// Update message remote id
   Future<void> updateAfterRemoteSync({
     required String localId,
     required String remoteId,
   }) async {
-    await (db.update(
-      db.messagesTable,
-    )..where((tbl) => tbl.id.equals(localId))).write(
-      MessagesTableCompanion(
-        remoteId: Value(remoteId),
-        status: Value(MessageStatus.sent.name),
-      ),
-    );
+    await (db.update(db.messagesTable)..where((tbl) => tbl.id.equals(localId)))
+        .write(MessagesTableCompanion(remoteId: Value(remoteId)));
   }
 
   /// Return message by local temp id from local db
@@ -87,7 +125,7 @@ class MessageLocalDatasource {
   Stream<List<Message>> watchMessages(String chatId) {
     return (db.select(db.messagesTable)
           ..where((tbl) => tbl.chatId.equals(chatId))
-          ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
         .watch()
         .map((rows) => rows.map((r) => r.toDomain()).toList());
   }

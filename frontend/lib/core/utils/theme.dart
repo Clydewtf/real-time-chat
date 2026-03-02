@@ -19,6 +19,14 @@ class AppTheme {
   static const Color darkOnSurface = Colors.white;
   static const Color darkError = Color(0xFFCF6679);
 
+  // --- SHADOW COLORS (LIGHT) ---
+  static const Color lightShadow = Colors.black26;
+  static const Color lightShadowStrong = Colors.black38;
+
+  // --- SHADOW COLORS (DARK) ---
+  static const Color darkShadow = Colors.black54;
+  static const Color darkShadowStrong = Colors.black87;
+
   // --- TYPOGRAPHY ---
   static const TextTheme textTheme = TextTheme(
     displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.bold),
@@ -63,9 +71,7 @@ class AppTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: lightPrimary,
         foregroundColor: lightOnPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -93,7 +99,10 @@ class AppTheme {
       onError: Colors.black,
     ),
     scaffoldBackgroundColor: darkSurface,
-    textTheme: textTheme.apply(bodyColor: darkOnSurface, displayColor: darkOnSurface),
+    textTheme: textTheme.apply(
+      bodyColor: darkOnSurface,
+      displayColor: darkOnSurface,
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: darkPrimary,
       foregroundColor: darkOnPrimary,
@@ -103,9 +112,7 @@ class AppTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: darkPrimary,
         foregroundColor: darkOnPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -117,4 +124,26 @@ class AppTheme {
       ),
     ),
   );
+}
+
+extension AppShadowExtension on BuildContext {
+  List<BoxShadow> shadow(double elevation) {
+    final isDark = Theme.of(this).brightness == Brightness.dark;
+    final baseColor = isDark ? AppTheme.darkShadow : AppTheme.lightShadow;
+
+    return [
+      BoxShadow(
+        color: baseColor.withValues(alpha: _opacityForElevation(elevation)),
+        blurRadius: elevation * 1.5,
+        offset: Offset(0, elevation / 2),
+      ),
+    ];
+  }
+
+  double _opacityForElevation(double elevation) {
+    if (elevation <= 2) return 0.08;
+    if (elevation <= 6) return 0.12;
+    if (elevation <= 12) return 0.16;
+    return 0.20;
+  }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/presentation/widgets/chat/scroll_to_bottom_button.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../../../data/repositories/message_repository.dart';
 import '../../../domain/entities/message.dart';
 import '../../../domain/value_objects/message_status.dart';
 import '../../../domain/value_objects/message_type.dart';
@@ -27,30 +30,267 @@ class ChatDetailsScreen extends ConsumerStatefulWidget {
 
 class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   late final TextEditingController controller;
+  late final ScrollController _scrollController;
+  late final ProviderSubscription<AsyncValue<List<Message>>> _messagesSub;
+  late final MessageRepository _repo;
+  late final GraphQLClient _client;
+  final Set<String> _pendingReadIds = {};
+
+  static const int _pageSize = 15;
+  static const double _bottomThreshold = 150;
+  static const double _topThreshold = 0;
+
+  int _unreadCount = 0;
+  List<Message> _messages = [];
+  bool _showScrollToBottom = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  bool _isNearBottom = true;
+  bool _isMarkingRead = false;
+
+  DateTime? _oldestCursor;
 
   @override
   void initState() {
     super.initState();
     controller = TextEditingController();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
 
-    final repo = ref.read(messageRepositoryProvider);
-    final client = ref.read(dynamicGraphQLClientProvider);
+    _messages.clear();
+    Future.microtask(_initialLoad);
 
-    repo.syncMessages(client, widget.chatId);
-    repo.subscribeToChat(client: client, chatId: widget.chatId);
+    _repo = ref.read(messageRepositoryProvider);
+    _client = ref.read(dynamicGraphQLClientProvider);
+
+    _repo.syncMessages(_client, widget.chatId);
+    _repo.subscribeToChat(client: _client, chatId: widget.chatId);
+
+    _messagesSub = ref.listenManual<AsyncValue<List<Message>>>(
+      chatMessagesProvider(widget.chatId),
+      (previous, next) {
+        next.whenData((messages) {
+          if (!mounted || messages.isEmpty) return;
+
+          bool updated = false;
+
+          for (final msg in messages) {
+            final pendingIndex = _messages.indexWhere(
+              (m) => m.localTempId != null && m.localTempId == msg.localTempId,
+            );
+            if (pendingIndex != -1) {
+              if (_pendingReadIds.contains(msg.id)) {
+                continue;
+              }
+              _messages[pendingIndex] = msg;
+              updated = true;
+              continue;
+            }
+
+            final exists = _messages.any((m) => m.id == msg.id);
+            if (!exists) {
+              _messages.add(msg);
+              updated = true;
+
+              if (!_isNearBottom) {
+                _unreadCount++;
+              } else if (msg.senderId != widget.currentUserId) {
+                _markVisibleMessagesAsRead();
+              }
+            }
+          }
+
+          if (updated) {
+            _messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+            setState(() {});
+
+            if (_isNearBottom) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_scrollController.hasClients) return;
+
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                );
+              });
+            }
+          }
+        });
+      },
+    );
   }
 
   @override
   void dispose() {
-    ref.read(messageRepositoryProvider).unsubscribeFromChat();
+    _messagesSub.close();
+
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+
+    _repo.unsubscribeFromChat();
+
     controller.dispose();
     super.dispose();
   }
 
+  Future<void> _initialLoad() async {
+    final repo = ref.read(messageRepositoryProvider);
+    final latest = await repo.getLatestMessages(widget.chatId, _pageSize);
+
+    final db = ref.read(appDatabaseProvider);
+    final rows = await db.select(db.messagesTable).get();
+    for (final row in rows) {
+      print('${row.id} | ${row.status} | ${row.content} | ${row.createdAt}');
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _messages = latest;
+      _oldestCursor = latest.isNotEmpty ? latest.last.createdAt : null;
+      _hasMore = latest.length == _pageSize;
+    });
+
+    final unreadIncomingIds = _messages
+        .where(
+          (m) =>
+              m.senderId != widget.currentUserId &&
+              m.status != MessageStatus.read &&
+              m.remoteId != null,
+        )
+        .map((m) => m.remoteId!)
+        .toList();
+
+    if (unreadIncomingIds.isNotEmpty) {
+      await _repo.markMessagesAsRead(unreadIncomingIds);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    final isNearBottom = position.pixels <= _bottomThreshold;
+
+    if (_isNearBottom != isNearBottom) {
+      setState(() {
+        _isNearBottom = isNearBottom;
+        _showScrollToBottom = !isNearBottom;
+
+        if (isNearBottom) {
+          _markVisibleMessagesAsRead();
+        }
+      });
+    }
+
+    if (position.pixels >= position.maxScrollExtent - _topThreshold) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore || _oldestCursor == null) return;
+
+    _isLoadingMore = true;
+
+    final older = await _repo.getOlderMessages(
+      widget.chatId,
+      _oldestCursor!,
+      _pageSize,
+    );
+
+    if (!mounted) return;
+
+    if (older.isEmpty) {
+      _hasMore = false;
+      _isLoadingMore = false;
+      return;
+    }
+
+    final existingIds = _messages.map((m) => m.id).toSet();
+    final uniqueOlder = older
+        .where((m) => !existingIds.contains(m.id))
+        .toList();
+
+    if (uniqueOlder.isEmpty) {
+      _hasMore = false;
+      _isLoadingMore = false;
+      return;
+    }
+
+    setState(() {
+      _messages.addAll(uniqueOlder);
+      _oldestCursor = uniqueOlder.last.createdAt;
+    });
+
+    _hasMore = uniqueOlder.length == _pageSize;
+    _isLoadingMore = false;
+  }
+
+  Future<void> _markVisibleMessagesAsRead() async {
+    if (_isMarkingRead) return;
+
+    final unreadIncoming = _messages.where(
+      (m) =>
+          m.senderId != widget.currentUserId && m.status != MessageStatus.read,
+    );
+    final remoteIds = unreadIncoming
+        .where((m) => m.remoteId != null)
+        .map((m) => m.remoteId!)
+        .toList();
+
+    if (remoteIds.isEmpty) return;
+
+    _isMarkingRead = true;
+
+    setState(() {
+      for (final id in remoteIds) {
+        final index = _messages.indexWhere((m) => m.id == id);
+        if (index != -1) {
+          _messages[index] = _messages[index].copyWith(
+            status: MessageStatus.read,
+          );
+        }
+      }
+
+      _unreadCount = 0;
+    });
+
+    _pendingReadIds.addAll(remoteIds);
+
+    try {
+      await _repo.markMessagesAsRead(remoteIds);
+    } catch (e) {
+      print('UI ERROR: $e');
+    } finally {
+      _pendingReadIds.removeAll(remoteIds);
+      _isMarkingRead = false;
+    }
+  }
+
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+
+    setState(() {
+      _unreadCount = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
-
     return AppScaffold(
       title: 'Chat',
       centerTitle: true,
@@ -58,30 +298,46 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
       body: Column(
         children: [
           Expanded(
-            child: messagesAsync.when(
-              loading: () => const Center(child: AppLoadingIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (messages) {
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-                  itemCount: messages.length,
-                  itemBuilder: (_, index) {
-                    final msg = messages[index];
-                    final isMe = msg.senderId == widget.currentUserId;
+            child: Stack(
+              children: [
+                _messages.isEmpty
+                    ? const Center(child: AppLoadingIndicator())
+                    : ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.m,
+                        ),
+                        itemCount: _messages.length,
+                        itemBuilder: (_, index) {
+                          final msg = _messages[index];
+                          final isMe = msg.senderId == widget.currentUserId;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.xs / 2,
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.xs / 2,
+                            ),
+                            child: MessageBubble(
+                              text: msg.content,
+                              type: isMe
+                                  ? BubbleType.outgoing
+                                  : BubbleType.incoming,
+                              status: msg.status,
+                            ),
+                          );
+                        },
                       ),
-                      child: MessageBubble(
-                        text: msg.content,
-                        type: isMe ? BubbleType.outgoing : BubbleType.incoming,
-                        status: msg.status,
-                      ),
-                    );
-                  },
-                );
-              },
+
+                if (_showScrollToBottom)
+                  Positioned(
+                    right: AppSpacing.m,
+                    bottom: AppSpacing.m,
+                    child: ScrollToBottomButton(
+                      unreadCount: _unreadCount,
+                      onPressed: _scrollToBottom,
+                    ),
+                  ),
+              ],
             ),
           ),
           MessageInputBar(
@@ -105,6 +361,10 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
               );
 
               controller.clear();
+
+              setState(() {
+                _messages.insert(0, message);
+              });
 
               await repo.sendMessage(client: client, message: message);
             },
