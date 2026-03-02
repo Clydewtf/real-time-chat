@@ -2,9 +2,12 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../../../domain/value_objects/message_type.dart';
 
 class MessageRemoteDatasource {
+  final GraphQLClient _client;
+
+  MessageRemoteDatasource(this._client);
+
   /// Send message
   Future<Map<String, dynamic>> sendMessage({
-    required GraphQLClient client,
     required String chatId,
     required String content,
     MessageType type = MessageType.text,
@@ -46,7 +49,7 @@ class MessageRemoteDatasource {
       }
     ''';
 
-    final result = await client.mutate(
+    final result = await _client.mutate(
       MutationOptions(
         document: gql(sendMessageMutation),
         variables: {
@@ -68,10 +71,7 @@ class MessageRemoteDatasource {
   }
 
   /// Load messages for chat
-  Future<List<Map<String, dynamic>>> getMessages(
-    GraphQLClient client,
-    String chatId,
-  ) async {
+  Future<List<Map<String, dynamic>>> getMessages(String chatId) async {
     const getMessagesQuery = '''
       query GetMessages(\$chatId: uuid!) {
         messages(
@@ -93,7 +93,7 @@ class MessageRemoteDatasource {
       }
     ''';
 
-    final result = await client.query(
+    final result = await _client.query(
       QueryOptions(
         document: gql(getMessagesQuery),
         variables: {'chatId': chatId},
@@ -109,10 +109,7 @@ class MessageRemoteDatasource {
   }
 
   /// Subscribe to new messages
-  Stream<Map<String, dynamic>> subscribeNewMessages(
-    GraphQLClient client,
-    String chatId,
-  ) {
+  Stream<Map<String, dynamic>> subscribeNewMessages(String chatId) {
     const newMessagesSubscription = '''
       subscription OnNewMessage(\$chatId: uuid!) {
         messages(
@@ -140,7 +137,7 @@ class MessageRemoteDatasource {
       variables: {'chatId': chatId},
     );
 
-    return client
+    return _client
         .subscribe(options)
         .where((result) {
           if (result.hasException) {
@@ -155,5 +152,29 @@ class MessageRemoteDatasource {
           final list = result.data!['messages'] as List<dynamic>;
           return list.first as Map<String, dynamic>;
         });
+  }
+
+  /// Update messages status to read
+  Future<void> markMessagesAsRead({required List<String> messagesIds}) async {
+    if (messagesIds.isEmpty) return;
+
+    const mutation = '''
+      mutation MarkMessagesAsRead(\$ids: [uuid!]!) {
+        update_messages(
+          where: { id: { _in: \$ids } }
+          _set: { status: "read" }
+        ) {
+          affected_rows
+        }
+      }
+    ''';
+
+    final result = await _client.mutate(
+      MutationOptions(document: gql(mutation), variables: {'ids': messagesIds}),
+    );
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
   }
 }
