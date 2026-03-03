@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../domain/value_objects/message_status.dart';
 import '../common/app_card.dart';
 import 'message_status_icon.dart';
@@ -13,17 +14,20 @@ class MessageBubble extends StatelessWidget {
   final BubbleType type;
   final bool isLastInGroup;
   final MessageStatus status;
+  final DateTime timestamp;
 
   const MessageBubble({
     super.key,
     required this.text,
     required this.type,
+    required this.timestamp,
     this.isLastInGroup = true,
     this.status = MessageStatus.sent,
   });
 
   @override
   Widget build(BuildContext context) {
+    final timeString = DateFormat('HH:mm').format(timestamp.toLocal());
     final isOutgoing = type == BubbleType.outgoing;
     final maxBubbleWidth =
         MediaQuery.of(context).size.width * (isOutgoing ? 0.65 : 0.75);
@@ -57,11 +61,24 @@ class MessageBubble extends StatelessWidget {
                       context,
                     ).textTheme.bodyMedium!.copyWith(color: textColor),
                   ),
-                  if (isOutgoing)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.xs),
-                      child: MessageStatusIcon(status: status),
-                    ),
+
+                  const SizedBox(height: AppSpacing.xs),
+
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        timeString,
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          color: textColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      if (isOutgoing) ...[
+                        const SizedBox(width: 4),
+                        MessageStatusIcon(status: status),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
