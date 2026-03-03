@@ -268,7 +268,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     try {
       await _repo.markMessagesAsRead(remoteIds);
     } catch (e) {
-      print('UI ERROR: $e');
+      throw Exception("$e");
     } finally {
       _pendingReadIds.removeAll(remoteIds);
       _isMarkingRead = false;
@@ -287,6 +287,13 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     setState(() {
       _unreadCount = 0;
     });
+  }
+
+  bool shouldInsertTimeGap(DateTime current, DateTime? older) {
+    if (older == null) return false;
+
+    final difference = current.difference(older).inMinutes;
+    return difference >= 10;
   }
 
   @override
@@ -313,9 +320,18 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
                           final msg = _messages[index];
                           final isMe = msg.senderId == widget.currentUserId;
 
+                          final older = index < _messages.length - 1
+                              ? _messages[index + 1]
+                              : null;
+                          final showGap = shouldInsertTimeGap(
+                            msg.createdAt,
+                            older?.createdAt,
+                          );
+
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.xs / 2,
+                            padding: EdgeInsets.only(
+                              top: showGap ? AppSpacing.s : AppSpacing.xs / 2,
+                              bottom: AppSpacing.xs / 2,
                             ),
                             child: MessageBubble(
                               text: msg.content,
@@ -323,6 +339,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
                                   ? BubbleType.outgoing
                                   : BubbleType.incoming,
                               status: msg.status,
+                              timestamp: msg.createdAt,
                             ),
                           );
                         },
