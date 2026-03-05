@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/presentation/widgets/chat/date_divider.dart';
 import 'package:frontend/presentation/widgets/chat/scroll_to_bottom_button.dart';
+import 'package:frontend/presentation/widgets/constants/app_radius.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/utils/theme.dart';
 import '../../../data/repositories/message_repository.dart';
 import '../../../domain/entities/message.dart';
 import '../../../domain/value_objects/message_status.dart';
@@ -30,15 +35,14 @@ class ChatDetailsScreen extends ConsumerStatefulWidget {
 
 class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   late final TextEditingController controller;
-  late final ScrollController _scrollController;
   late final ProviderSubscription<AsyncValue<List<Message>>> _messagesSub;
+  late final ItemScrollController _itemScrollController;
+  late final ItemPositionsListener _itemPositionsListener;
   late final MessageRepository _repo;
   late final GraphQLClient _client;
   final Set<String> _pendingReadIds = {};
 
   static const int _pageSize = 15;
-  static const double _bottomThreshold = 150;
-  static const double _topThreshold = 0;
 
   int _unreadCount = 0;
   List<Message> _messages = [];
@@ -47,15 +51,19 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   bool _hasMore = true;
   bool _isNearBottom = true;
   bool _isMarkingRead = false;
+  bool _showFloatingDate = false;
 
   DateTime? _oldestCursor;
+  String? _floatingDate;
+  Timer? _floatingDateTimer;
 
   @override
   void initState() {
     super.initState();
     controller = TextEditingController();
-    _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
+    _itemScrollController = ItemScrollController();
+    _itemPositionsListener = ItemPositionsListener.create();
+    _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
 
     _messages.clear();
     Future.microtask(_initialLoad);
@@ -107,13 +115,9 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
 
             if (_isNearBottom) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!_scrollController.hasClients) return;
+                if (!_itemScrollController.isAttached) return;
 
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                );
+                _itemScrollController.jumpTo(index: 0);
               });
             }
           }
@@ -126,24 +130,82 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   void dispose() {
     _messagesSub.close();
 
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _floatingDateTimer?.cancel();
 
     _repo.unsubscribeFromChat();
 
     controller.dispose();
+    _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     super.dispose();
+  }
+
+  void _onPositionsChanged() {
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty || _messages.isEmpty) return;
+
+    final minIndex = positions
+        .where((p) => p.itemTrailingEdge > 0)
+        .map((p) => p.index)
+        .reduce((a, b) => a < b ? a : b);
+
+    final isNearBottom = minIndex <= 1;
+
+    if (_isNearBottom != isNearBottom) {
+      setState(() {
+        _isNearBottom = isNearBottom;
+        _showScrollToBottom = !isNearBottom;
+
+        if (isNearBottom) {
+          _markVisibleMessagesAsRead();
+        }
+      });
+    }
+
+    if (positions.isEmpty || _messages.isEmpty) return;
+
+    final topIndex = positions
+        .map((p) => p.index)
+        .reduce((a, b) => a > b ? a : b);
+
+    if (topIndex >= 0 && topIndex < _messages.length) {
+      final message = _messages[topIndex];
+      final formatted = formatDateSeparator(message.createdAt);
+
+      if (_floatingDate != formatted) {
+        setState(() {
+          _floatingDate = formatted;
+          _showFloatingDate = true;
+        });
+      }
+
+      _floatingDateTimer?.cancel();
+      _floatingDateTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted) {
+          setState(() {
+            _showFloatingDate = false;
+          });
+        }
+      });
+    }
+
+    final maxIndex = positions
+        .map((e) => e.index)
+        .reduce((a, b) => a > b ? a : b);
+
+    if (maxIndex >= _messages.length - 3) {
+      _loadMore();
+    }
   }
 
   Future<void> _initialLoad() async {
     final repo = ref.read(messageRepositoryProvider);
     final latest = await repo.getLatestMessages(widget.chatId, _pageSize);
 
-    final db = ref.read(appDatabaseProvider);
-    final rows = await db.select(db.messagesTable).get();
-    for (final row in rows) {
-      print('${row.id} | ${row.status} | ${row.content} | ${row.createdAt}');
-    }
+    // final db = ref.read(appDatabaseProvider);
+    // final rows = await db.select(db.messagesTable).get();
+    // for (final row in rows) {
+    //   print('${row.id} | ${row.status} | ${row.content} | ${row.createdAt}');
+    // }
 
     if (!mounted) return;
 
@@ -168,31 +230,10 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.jumpTo(0);
+      if (_itemScrollController.isAttached) {
+        _itemScrollController.jumpTo(index: 0);
+      }
     });
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-
-    final position = _scrollController.position;
-    final isNearBottom = position.pixels <= _bottomThreshold;
-
-    if (_isNearBottom != isNearBottom) {
-      setState(() {
-        _isNearBottom = isNearBottom;
-        _showScrollToBottom = !isNearBottom;
-
-        if (isNearBottom) {
-          _markVisibleMessagesAsRead();
-        }
-      });
-    }
-
-    if (position.pixels >= position.maxScrollExtent - _topThreshold) {
-      _loadMore();
-    }
   }
 
   Future<void> _loadMore() async {
@@ -276,10 +317,10 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
   }
 
   void _scrollToBottom() {
-    if (!_scrollController.hasClients) return;
+    if (!_itemScrollController.isAttached) return;
 
-    _scrollController.animateTo(
-      0,
+    _itemScrollController.scrollTo(
+      index: 0,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
@@ -296,6 +337,21 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     return difference >= 10;
   }
 
+  bool isSameDay(DateTime a, DateTime b) {
+    final localA = a.toLocal();
+    final localB = b.toLocal();
+
+    return localA.year == localB.year &&
+        localA.month == localB.month &&
+        localA.day == localB.day;
+  }
+
+  bool shouldInsertDayDivider(DateTime current, DateTime? older) {
+    if (older == null) return true;
+
+    return !isSameDay(current, older);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -309,8 +365,9 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
               children: [
                 _messages.isEmpty
                     ? const Center(child: AppLoadingIndicator())
-                    : ListView.builder(
-                        controller: _scrollController,
+                    : ScrollablePositionedList.builder(
+                        itemScrollController: _itemScrollController,
+                        itemPositionsListener: _itemPositionsListener,
                         reverse: true,
                         padding: const EdgeInsets.symmetric(
                           vertical: AppSpacing.m,
@@ -327,23 +384,74 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
                             msg.createdAt,
                             older?.createdAt,
                           );
+                          final showDateDivider = shouldInsertDayDivider(
+                            msg.createdAt,
+                            older?.createdAt,
+                          );
 
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              top: showGap ? AppSpacing.s : AppSpacing.xs / 2,
-                              bottom: AppSpacing.xs / 2,
-                            ),
-                            child: MessageBubble(
-                              text: msg.content,
-                              type: isMe
-                                  ? BubbleType.outgoing
-                                  : BubbleType.incoming,
-                              status: msg.status,
-                              timestamp: msg.createdAt,
-                            ),
+                          return Column(
+                            children: [
+                              if (showDateDivider)
+                                DateDivider(
+                                  text: formatDateSeparator(msg.createdAt),
+                                ),
+
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: showGap
+                                      ? AppSpacing.s
+                                      : AppSpacing.xs / 2,
+                                  bottom: AppSpacing.xs / 2,
+                                ),
+                                child: MessageBubble(
+                                  text: msg.content,
+                                  type: isMe
+                                      ? BubbleType.outgoing
+                                      : BubbleType.incoming,
+                                  status: msg.status,
+                                  timestamp: msg.createdAt,
+                                ),
+                              ),
+                            ],
                           );
                         },
                       ),
+
+                if (_showFloatingDate && _floatingDate != null)
+                  Positioned(
+                    top: AppSpacing.m,
+                    left: 0,
+                    right: 0,
+                    child: AnimatedOpacity(
+                      opacity: _showFloatingDate ? 1 : 0,
+                      duration: Duration(milliseconds: 200),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.lightOnSurface.withValues(
+                              alpha: 0.08,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.m * 2,
+                            ),
+                          ),
+                          child: Text(
+                            _floatingDate!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppTheme.lightOnSurface.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 if (_showScrollToBottom)
                   Positioned(
