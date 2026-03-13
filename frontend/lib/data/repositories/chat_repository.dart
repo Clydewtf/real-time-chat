@@ -2,6 +2,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../domain/entities/chat.dart';
 import '../datasources/local/chat/chat_local_datasource.dart';
 import '../datasources/remote/chat/chat_remote_datasource.dart';
+import 'message_repository.dart';
 import 'user_repository.dart';
 
 class ChatRepository {
@@ -22,7 +23,7 @@ class ChatRepository {
     required String username,
   }) async {
     // 1. Find user
-    final users = await userRepository.searchUsers(client, username);
+    final users = await userRepository.searchUsers(username);
     if (users.isEmpty) return null;
 
     final otherUser = users.first;
@@ -54,12 +55,32 @@ class ChatRepository {
   }
 
   /// Sync all chats for current user from remote
-  Future<void> syncChats(GraphQLClient client, String userId) async {
+  Future<void> syncChats(
+    GraphQLClient client,
+    String userId,
+    MessageRepository messageRepo,
+  ) async {
     final remoteChatsJson = await remote.getChatsForUser(client, userId);
 
     for (final chatJson in remoteChatsJson) {
       final chat = _fromRemote(chatJson);
       await local.saveChat(chat);
+
+      final lastMessageId = chat.lastMessageId;
+      if (lastMessageId == null) continue;
+
+      final existing = await messageRepo.local.findByRemoteId(lastMessageId);
+
+      if (existing != null) {
+        messageRepo.cacheMessage(existing);
+      } else {
+        final message = await messageRepo.getMessageById(lastMessageId);
+
+        if (message != null) {
+          await messageRepo.local.saveMessage(message);
+          messageRepo.cacheMessage(message);
+        }
+      }
     }
   }
 
@@ -71,6 +92,35 @@ class ChatRepository {
   }) async {
     // now only updating last message id
     await local.updateLastMessageId(chatId, lastMessageId);
+  }
+
+  /// Return opponent username from chat
+  Future<String> getOpponentUsername(Chat chat, String currentUserId) async {
+    if (chat.participantIds.length != 2) return '';
+
+    final opponentId = chat.participantIds.firstWhere(
+      (id) => id != currentUserId,
+    );
+
+    if (_usernameCache.containsKey(opponentId)) {
+      return _usernameCache[opponentId]!;
+    }
+
+    final user = await userRepository.getUser(opponentId);
+    final username = user?.username ?? '';
+    _usernameCache[opponentId] = username;
+
+    return username;
+  }
+
+  final Map<String, String> _usernameCache = {};
+
+  String getCachedOpponentUsername(Chat chat, String currentUserId) {
+    if (chat.participantIds.length != 2) return '';
+    final opponentId = chat.participantIds.firstWhere(
+      (id) => id != currentUserId,
+    );
+    return _usernameCache[opponentId] ?? '';
   }
 
   /// Convert GraphQL JSON -> domain Chat

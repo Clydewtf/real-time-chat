@@ -129,4 +129,13 @@ class MessageLocalDatasource {
         .watch()
         .map((rows) => rows.map((r) => r.toDomain()).toList());
   }
+
+  Stream<Message?> watchLastMessageForChat(String chatId) {
+    final query = db.select(db.messagesTable)
+      ..where((tbl) => tbl.chatId.equals(chatId))
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+      ..limit(1);
+
+    return query.watchSingleOrNull().map((row) => row?.toDomain());
+  }
 }
