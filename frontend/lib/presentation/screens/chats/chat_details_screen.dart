@@ -132,7 +132,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
 
     _floatingDateTimer?.cancel();
 
-    _repo.unsubscribeFromChat();
+    _repo.unsubscribeFromChat(widget.chatId);
 
     controller.dispose();
     _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
@@ -201,11 +201,11 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     final repo = ref.read(messageRepositoryProvider);
     final latest = await repo.getLatestMessages(widget.chatId, _pageSize);
 
-    // final db = ref.read(appDatabaseProvider);
-    // final rows = await db.select(db.messagesTable).get();
-    // for (final row in rows) {
-    //   print('${row.id} | ${row.status} | ${row.content} | ${row.createdAt}');
-    // }
+    final db = ref.read(appDatabaseProvider);
+    final rows = await db.select(db.messagesTable).get();
+    for (final row in rows) {
+      print('${row.id} | ${row.status} | ${row.content} | ${row.createdAt}');
+    }
 
     if (!mounted) return;
 
@@ -226,7 +226,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
         .toList();
 
     if (unreadIncomingIds.isNotEmpty) {
-      await _repo.markMessagesAsRead(unreadIncomingIds);
+      await _repo.markMessagesAsRead(unreadIncomingIds, _client);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -307,7 +307,7 @@ class _ChatDetailsScreenState extends ConsumerState<ChatDetailsScreen> {
     _pendingReadIds.addAll(remoteIds);
 
     try {
-      await _repo.markMessagesAsRead(remoteIds);
+      await _repo.markMessagesAsRead(remoteIds, _client);
     } catch (e) {
       throw Exception("$e");
     } finally {

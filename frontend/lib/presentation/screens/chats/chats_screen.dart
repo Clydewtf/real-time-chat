@@ -58,29 +58,57 @@ class ChatsScreen extends ConsumerWidget {
                       return const Center(child: Text("No chats yet"));
                     }
 
+                    chats.sort(
+                      (a, b) => (b.updatedAt ?? b.createdAt).compareTo(
+                        a.updatedAt ?? a.createdAt,
+                      ),
+                    );
+
+                    final chatRepo = ref.read(chatRepositoryProvider);
+
                     return ListView.separated(
                       itemCount: chats.length,
                       separatorBuilder: (_, __) => const AppDivider(),
                       itemBuilder: (_, index) {
                         final chat = chats[index];
 
+                        String opponentUsername = chatRepo
+                            .getCachedOpponentUsername(chat, currentUserId);
+
+                        if (opponentUsername.isEmpty &&
+                            chat.participantIds.length == 2) {
+                          chatRepo.getOpponentUsername(chat, currentUserId);
+                        }
+
                         final title =
                             chat.title ??
                             (chat.participantIds.length == 2
-                                ? chat.participantIds.firstWhere(
-                                    (id) => id != currentUserId,
-                                  )
-                                : "Group");
+                                ? opponentUsername
+                                : 'Group');
 
-                        final lastMessageTime =
-                            chat.updatedAt ?? chat.createdAt;
+                        final lastMsgAsync = ref.watch(
+                          lastMessageProvider(chat.id),
+                        );
+
+                        final lastMessagePreview = lastMsgAsync.when(
+                          data: (msg) {
+                            if (msg == null) return '';
+
+                            return msg.senderId == currentUserId
+                                ? 'You: ${msg.content}'
+                                : msg.content;
+                          },
+                          loading: () => '',
+                          error: (_, __) => '',
+                        );
+
                         final formattedTime = DateFormat(
                           'HH:mm',
-                        ).format(lastMessageTime);
+                        ).format(chat.updatedAt ?? chat.createdAt);
 
                         return ChatCard(
                           name: title,
-                          lastMessage: chat.lastMessageId ?? '',
+                          lastMessage: lastMessagePreview,
                           time: formattedTime,
                           avatarUrl:
                               chat.avatarUrl ??
@@ -103,3 +131,47 @@ class ChatsScreen extends ConsumerWidget {
     );
   }
 }
+
+// final opponentId = chat.participantIds.firstWhere(
+//                           (id) => id != currentUserId,
+//                         );
+//                         final opponent = ref
+//                             .watch(userRepositoryProvider)
+//                             .getUser(opponentId);
+
+//                         final title =
+//                             chat.title ??
+//                             (chat.participantIds.length == 2
+//                                 ? chat.participantIds.firstWhere(
+//                                     (id) => id != currentUserId,
+//                                   )
+//                                 : "Group");
+
+//                         final lastMsg = ref
+//                             .read(messageRepositoryProvider)
+//                             .getCachedMessage(chat.lastMessageId ?? '');
+//                         String lastMessagePreview = '';
+
+//                         if (lastMsg != null) {
+//                           lastMessagePreview = lastMsg.senderId == currentUserId
+//                               ? 'You: ${lastMsg.content}'
+//                               : lastMsg.content;
+//                         }
+
+//                         final formattedTime = DateFormat(
+//                           'HH:mm',
+//                         ).format(chat.updatedAt ?? chat.createdAt);
+
+//                         return ChatCard(
+//                           name: title,
+//                           lastMessage: lastMessagePreview,
+//                           time: formattedTime,
+//                           avatarUrl:
+//                               chat.avatarUrl ??
+//                               'https://i.pravatar.cc/150?img=${index + 1}',
+//                           onTap: () => context.pushNamed(
+//                             'chat_details',
+//                             pathParameters: {"id": chat.id},
+//                             extra: currentUserId,
+//                           ),
+//                         );
