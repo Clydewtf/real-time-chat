@@ -11,8 +11,7 @@ class MessageRepository {
   final MessageLocalDatasource local;
   final MessageRemoteDatasource remote;
   final ChatRepository chatRepository;
-
-  StreamSubscription<Map<String, dynamic>>? _subscription;
+  final Map<String, Message> _messageCache = {};
 
   MessageRepository({
     required this.local,
@@ -20,9 +19,40 @@ class MessageRepository {
     required this.chatRepository,
   });
 
+  void cacheMessage(Message message) {
+    final key = message.remoteId ?? message.id;
+    _messageCache[key] = message;
+  }
+
+  void cacheMessages(List<Message> messages) {
+    for (final msg in messages) {
+      final key = msg.remoteId ?? msg.id;
+      _messageCache[key] = msg;
+    }
+  }
+
+  Message? getCachedMessage(String id) {
+    final msg = _messageCache[id];
+    return msg;
+  }
+
+  Future<Message?> getMessageById(String messageId) async {
+    final cached = getCachedMessage(messageId);
+    if (cached != null) return cached;
+
+    final localMsg = await local.findByRemoteId(messageId);
+    if (localMsg != null) {
+      cacheMessage(localMsg);
+    }
+
+    return localMsg;
+  }
+
   /// Return latest messages
-  Future<List<Message>> getLatestMessages(String chatId, int limit) {
-    return local.getMessages(chatId, limit);
+  Future<List<Message>> getLatestMessages(String chatId, int limit) async {
+    final latest = await local.getMessages(chatId, limit);
+    cacheMessages(latest);
+    return latest;
   }
 
   /// Return older messages
@@ -30,8 +60,10 @@ class MessageRepository {
     String chatId,
     DateTime before,
     int limit,
-  ) {
-    return local.getOlderMessages(chatId, before, limit);
+  ) async {
+    final older = await local.getOlderMessages(chatId, before, limit);
+    cacheMessages(older);
+    return older;
   }
 
   /// OFFLINE-FIRST send message
@@ -41,6 +73,7 @@ class MessageRepository {
   }) async {
     // 1. Save locally as pending
     await local.saveMessage(message.copyWith(status: MessageStatus.pending));
+    cacheMessage(message);
 
     try {
       // 2. Send remotely
@@ -48,6 +81,7 @@ class MessageRepository {
         chatId: message.chatId,
         content: message.content,
         localTempId: message.localTempId ?? message.id,
+        client: client,
       );
 
       final remoteMessage = Message.fromJson(remoteJson);
@@ -57,6 +91,8 @@ class MessageRepository {
         localId: message.id,
         remoteId: remoteMessage.id,
       );
+
+      cacheMessage(remoteMessage);
 
       // 4. Update chat metadata
       await chatRepository.updateChatMetadata(
@@ -80,7 +116,8 @@ class MessageRepository {
 
   /// Sync messages for a chat (server → local)
   Future<void> syncMessages(GraphQLClient client, String chatId) async {
-    final remoteMessages = await remote.getMessages(chatId);
+    final remoteMessages = await remote.getMessages(chatId, client);
+    Message? newest;
 
     for (final json in remoteMessages) {
       final remoteMessage = Message.fromJson(json);
@@ -97,21 +134,30 @@ class MessageRepository {
         await local.saveMessage(remoteMessage.copyWith(status: mergedStatus));
       }
 
+      if (newest == null || remoteMessage.createdAt.isAfter(newest.createdAt)) {
+        newest = remoteMessage;
+      }
+    }
+
+    if (newest != null) {
       await chatRepository.updateChatMetadata(
         chatId: chatId,
-        lastMessageId: remoteMessage.id,
+        lastMessageId: newest.id,
       );
     }
   }
 
   /// Mark messages as read
-  Future<void> markMessagesAsRead(List<String> remoteIds) async {
+  Future<void> markMessagesAsRead(
+    List<String> remoteIds,
+    GraphQLClient client,
+  ) async {
     if (remoteIds.isEmpty) return;
 
     await local.updateMessagesStatusByRemoteIds(remoteIds, MessageStatus.read);
 
     try {
-      await remote.markMessagesAsRead(messagesIds: remoteIds);
+      await remote.markMessagesAsRead(messagesIds: remoteIds, client: client);
     } catch (e) {
       throw Exception("$e");
     }
@@ -157,6 +203,7 @@ class MessageRepository {
 
     // 2. New incoming message
     await local.saveMessage(incoming.copyWith(status: MessageStatus.sent));
+    cacheMessage(incoming);
 
     await chatRepository.updateChatMetadata(
       chatId: incoming.chatId,
@@ -169,23 +216,41 @@ class MessageRepository {
     return local.watchMessages(chatId);
   }
 
+  Stream<Message?> watchLastMessageForChat(String chatId) {
+    return local.watchLastMessageForChat(chatId);
+  }
+
+  final Map<String, StreamSubscription> _subscriptions = {};
+
   /// Subscribe to realtime messages for a chat
   void subscribeToChat({
     required GraphQLClient client,
     required String chatId,
   }) {
-    _subscription?.cancel();
+    if (_subscriptions.containsKey(chatId)) {
+      return;
+    }
 
-    _subscription = remote.subscribeNewMessages(chatId).listen((json) async {
-      final message = Message.fromJson(json);
-      await applyIncomingMessage(message);
-    });
+    final sub = remote
+        .subscribeNewMessages(chatId, client)
+        .listen(
+          (json) async {
+            final message = Message.fromJson(json);
+            await applyIncomingMessage(message);
+          },
+          onError: (e) {
+            throw Exception(e);
+          },
+          onDone: () {},
+        );
+
+    _subscriptions[chatId] = sub;
   }
 
   /// Unsubscribe to realtime messages for a chat
-  void unsubscribeFromChat() {
-    _subscription?.cancel();
-    _subscription = null;
+  void unsubscribeFromChat(String chatId) {
+    _subscriptions[chatId]?.cancel();
+    _subscriptions.remove(chatId);
   }
 
   /// Return all pending / failed messages from local db

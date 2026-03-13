@@ -2,14 +2,11 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../../../domain/value_objects/message_type.dart';
 
 class MessageRemoteDatasource {
-  final GraphQLClient _client;
-
-  MessageRemoteDatasource(this._client);
-
   /// Send message
   Future<Map<String, dynamic>> sendMessage({
     required String chatId,
     required String content,
+    required GraphQLClient client,
     MessageType type = MessageType.text,
     String? replyToMessageId,
     String? attachmentUrl,
@@ -49,7 +46,7 @@ class MessageRemoteDatasource {
       }
     ''';
 
-    final result = await _client.mutate(
+    final result = await client.mutate(
       MutationOptions(
         document: gql(sendMessageMutation),
         variables: {
@@ -71,7 +68,10 @@ class MessageRemoteDatasource {
   }
 
   /// Load messages for chat
-  Future<List<Map<String, dynamic>>> getMessages(String chatId) async {
+  Future<List<Map<String, dynamic>>> getMessages(
+    String chatId,
+    GraphQLClient client,
+  ) async {
     const getMessagesQuery = '''
       query GetMessages(\$chatId: uuid!) {
         messages(
@@ -93,7 +93,7 @@ class MessageRemoteDatasource {
       }
     ''';
 
-    final result = await _client.query(
+    final result = await client.query(
       QueryOptions(
         document: gql(getMessagesQuery),
         variables: {'chatId': chatId},
@@ -109,7 +109,10 @@ class MessageRemoteDatasource {
   }
 
   /// Subscribe to new messages
-  Stream<Map<String, dynamic>> subscribeNewMessages(String chatId) {
+  Stream<Map<String, dynamic>> subscribeNewMessages(
+    String chatId,
+    GraphQLClient client,
+  ) {
     const newMessagesSubscription = '''
       subscription OnNewMessage(\$chatId: uuid!) {
         messages(
@@ -137,7 +140,7 @@ class MessageRemoteDatasource {
       variables: {'chatId': chatId},
     );
 
-    return _client
+    return client
         .subscribe(options)
         .where((result) {
           if (result.hasException) {
@@ -155,7 +158,10 @@ class MessageRemoteDatasource {
   }
 
   /// Update messages status to read
-  Future<void> markMessagesAsRead({required List<String> messagesIds}) async {
+  Future<void> markMessagesAsRead({
+    required List<String> messagesIds,
+    required GraphQLClient client,
+  }) async {
     if (messagesIds.isEmpty) return;
 
     const mutation = '''
@@ -169,7 +175,7 @@ class MessageRemoteDatasource {
       }
     ''';
 
-    final result = await _client.mutate(
+    final result = await client.mutate(
       MutationOptions(document: gql(mutation), variables: {'ids': messagesIds}),
     );
 

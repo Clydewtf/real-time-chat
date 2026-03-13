@@ -42,10 +42,9 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
     setState(() => loading = true);
 
     final repo = ref.read(userRepositoryProvider);
-    final client = ref.read(dynamicGraphQLClientProvider);
 
     try {
-      final found = await repo.searchUsers(client, query);
+      final found = await repo.searchUsers(query);
       setState(() => results = found);
     } finally {
       setState(() => loading = false);

@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:frontend/data/datasources/remote/chat/chat_remote_datasource.dart';
@@ -30,7 +31,8 @@ final authRemoteDatasourceProvider = Provider<AuthRemoteDatasource>((ref) {
 });
 
 final userRemoteDatasourceProvider = Provider<UserRemoteDatasource>((ref) {
-  return UserRemoteDatasource();
+  final client = ref.watch(graphQLHttpClientProvider);
+  return UserRemoteDatasource(client);
 });
 
 final chatRemoteDatasourceProvider = Provider<ChatRemoteDatasource>((ref) {
@@ -40,8 +42,8 @@ final chatRemoteDatasourceProvider = Provider<ChatRemoteDatasource>((ref) {
 final messageRemoteDatasourceProvider = Provider<MessageRemoteDatasource>((
   ref,
 ) {
-  final client = ref.watch(dynamicGraphQLClientProvider);
-  return MessageRemoteDatasource(client);
+  //final client = ref.watch(dynamicGraphQLClientProvider);
+  return MessageRemoteDatasource();
 });
 
 // Local datasource providers
@@ -71,17 +73,17 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepository(
-    local: ref.watch(chatLocalDatasourceProvider),
-    remote: ref.watch(chatRemoteDatasourceProvider),
-    userRepository: ref.watch(userRepositoryProvider),
+    local: ref.read(chatLocalDatasourceProvider),
+    remote: ref.read(chatRemoteDatasourceProvider),
+    userRepository: ref.read(userRepositoryProvider),
   );
 });
 
 final messageRepositoryProvider = Provider<MessageRepository>((ref) {
   return MessageRepository(
-    local: ref.watch(messageLocalDatasourceProvider),
-    remote: ref.watch(messageRemoteDatasourceProvider),
-    chatRepository: ref.watch(chatRepositoryProvider),
+    local: ref.read(messageLocalDatasourceProvider),
+    remote: ref.read(messageRemoteDatasourceProvider),
+    chatRepository: ref.read(chatRepositoryProvider),
   );
 });
 
@@ -115,10 +117,20 @@ final chatMessagesProvider = StreamProvider.family<List<Message>, String>((
   return repo.watchMessages(chatId);
 });
 
+final lastMessageProvider = StreamProvider.family<Message?, String>((
+  ref,
+  chatId,
+) {
+  final repo = ref.watch(messageRepositoryProvider);
+  return repo.watchLastMessageForChat(chatId);
+});
+
 // GraphQLClient provider
 final dynamicGraphQLClientProvider = Provider<GraphQLClient>((ref) {
   final authState = ref.watch(authNotifierProvider);
   final token = authState.token;
+
+  print('>>> Creating GraphQLClient, token = $token');
 
   final httpLink = HttpLink(
     AppConfig.graphqlEndpoint,
@@ -134,7 +146,6 @@ final dynamicGraphQLClientProvider = Provider<GraphQLClient>((ref) {
       },
     ),
   );
-  print(token);
 
   final link = Link.split(
     (request) => request.isSubscription,
@@ -143,6 +154,18 @@ final dynamicGraphQLClientProvider = Provider<GraphQLClient>((ref) {
   );
 
   return GraphQLClient(cache: GraphQLCache(), link: link);
+});
+
+final graphQLHttpClientProvider = Provider<GraphQLClient>((ref) {
+  final authState = ref.watch(authNotifierProvider);
+  final token = authState.token;
+
+  final httpLink = HttpLink(
+    AppConfig.graphqlEndpoint,
+    defaultHeaders: {if (token != null) 'Authorization': 'Bearer $token'},
+  );
+
+  return GraphQLClient(cache: GraphQLCache(), link: httpLink);
 });
 
 // GraphQL client with explicit token provider (for sync / background)
@@ -189,7 +212,9 @@ final authSyncListenerProvider = Provider<void>((ref) {
       if (userId == null) return;
 
       try {
-        await chatRepo.syncChats(client, userId);
+        await chatRepo.syncChats(client, userId, messageRepo);
+        ref.invalidate(userChatsProvider(userId));
+
         await messageRepo.retryPendingMessages(client);
       } catch (e, st) {
         debugPrintStack(stackTrace: st);
